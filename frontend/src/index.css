@@ -1,0 +1,632 @@
+/* frontend/src/index.css - ОНОВЛЕНІ СТИЛІ ДЛЯ НОВОГО ДИЗАЙНУ */
+
+@import "tailwindcss";
+@plugin "daisyui";
+
+body {
+    font-family: "Inter", sans-serif;
+}
+
+/* Line clamp utility */
+.line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Fade-in animation for audio status */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 0.3s ease-out;
+}
+
+/* Pulse effect for audio visualizer bars */
+@keyframes audio-pulse {
+    0%, 100% {
+        transform: scaleY(0.5);
+    }
+    50% {
+        transform: scaleY(1);
+    }
+}
+
+.audio-bar {
+    animation: audio-pulse 1s ease-in-out infinite;
+}
+
+/* Enhanced button hover effects */
+.button-audio-active {
+    box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+    transform: scale(1.05);
+}
+
+.button-audio-idle:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(168, 85, 247, 0.3);
+}
+
+/* Покращений скролбар для задньої сторони картки */
+.custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(59, 130, 246, 0.5) rgba(219, 234, 254, 0.3);
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: rgba(219, 234, 254, 0.3);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(59, 130, 246, 0.5);
+    border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(59, 130, 246, 0.7);
+}
+
+/* Анімації для елементів на задній стороні */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Статичні затримки для різних елементів замість змінної --index */
+.card-item-1 {
+    animation: fadeInUp 0.3s ease-out forwards;
+    opacity: 0;
+}
+
+.card-item-2 {
+    animation: fadeInUp 0.3s ease-out forwards;
+    animation-delay: 0.1s;
+    opacity: 0;
+}
+
+.card-item-3 {
+    animation: fadeInUp 0.3s ease-out forwards;
+    animation-delay: 0.2s;
+    opacity: 0;
+}
+
+.card-item-4 {
+    animation: fadeInUp 0.3s ease-out forwards;
+    animation-delay: 0.3s;
+    opacity: 0;
+}
+
+/* Плавний перехід при перевертанні картки */
+.flip-transition {
+    transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-style: preserve-3d;
+}
+
+.flip-transition.flipped {
+    transform: rotateY(180deg);
+}
+
+/* Додаткові покращення стилів елементів */
+.card-section {
+    transition: all 0.2s ease-in-out;
+}
+
+.card-section:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Стилі для клавіш швидкого доступу */
+kbd {
+    display: inline-block;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+    color: #1f2937;
+    background-color: #f3f4f6;
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.1), 0 1px 0 rgba(0, 0, 0, 0.05);
+    padding: 0.25rem 0.5rem;
+    vertical-align: middle;
+    margin: 0 0.25rem;
+}
+
+/* Анімація для кнопки Swap */
+@keyframes pulse-swap {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+        background-color: rgba(59, 130, 246, 0.1);
+    }
+}
+
+.swap-button {
+    transition: all 0.2s ease-in-out;
+}
+
+.swap-button:hover {
+    animation: pulse-swap 1.5s infinite;
+}
+
+/* Модифікатор для компактного відображення елементів керування режимом перегляду */
+@media (max-width: 640px) {
+    .view-controls {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .swap-button {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* Audio wave animation for playing state */
+@keyframes audio-wave {
+    0%, 100% {
+        transform: scaleY(0.3);
+    }
+    25% {
+        transform: scaleY(1);
+    }
+    50% {
+        transform: scaleY(0.7);
+    }
+    75% {
+        transform: scaleY(0.9);
+    }
+}
+
+.audio-playing {
+    animation: audio-wave 0.8s ease-in-out infinite;
+}
+
+/* Drag and Drop стилі для MatchDescriptionsExercise */
+
+/* Стилі для draggable елементів */
+.draggable {
+    cursor: move;
+    transition: all 0.2s ease-in-out;
+}
+
+.draggable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.draggable.dragging {
+    opacity: 0.5;
+    transform: rotate(2deg) scale(1.05);
+    z-index: 1000;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Стилі для drop zones */
+.drop-zone {
+    transition: all 0.3s ease-in-out;
+    position: relative;
+}
+
+.drop-zone.drag-over {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(168, 85, 247, 0.4);
+    border-color: #a855f7 !important;
+    background-color: rgba(168, 85, 247, 0.1) !important;
+}
+
+.drop-zone.filled {
+    transform: none;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.drop-zone.correct {
+    animation: success-pulse 0.6s ease-out;
+}
+
+.drop-zone.incorrect {
+    animation: error-shake 0.5s ease-out;
+}
+
+/* Анімації для результатів */
+@keyframes success-pulse {
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 20px rgba(34, 197, 94, 0.5);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+@keyframes error-shake {
+    0%, 100% {
+        transform: translateX(0);
+    }
+    25% {
+        transform: translateX(-5px);
+    }
+    75% {
+        transform: translateX(5px);
+    }
+}
+
+/* Стилі для ghost drag image */
+.drag-ghost {
+    opacity: 0.8;
+    transform: rotate(5deg);
+    pointer-events: none;
+}
+
+/* Responsive adjustments для drag and drop */
+@media (max-width: 768px) {
+    .draggable {
+        touch-action: none;
+        user-select: none;
+    }
+
+    .drop-zone {
+        min-height: 60px;
+        font-size: 0.9rem;
+    }
+}
+
+/* Покращення accessibility */
+.draggable:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.drop-zone:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* Стилі для індикаторів стану */
+.word-placed {
+    opacity: 0.6;
+    filter: grayscale(30%);
+    cursor: default;
+}
+
+.word-available {
+    opacity: 1;
+    filter: none;
+    cursor: move;
+}
+
+/* Градієнтні фони для різних станів */
+.drop-zone-empty {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.drop-zone-filled {
+    background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+}
+
+.drop-zone-correct {
+    background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+}
+
+.drop-zone-incorrect {
+    background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+}
+
+/* Smooth transitions для всіх interactive елементів */
+.interactive-element {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Стилі для grip handle */
+.grip-handle {
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+}
+
+.draggable:hover .grip-handle {
+    opacity: 0.8;
+}
+
+/* Покращені hover ефекти */
+.hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* Анімація для появи елементів */
+.fade-in-up {
+    animation: fadeInUp 0.4s ease-out forwards;
+    opacity: 0;
+}
+
+/* Staggered animation для множинних елементів */
+.fade-in-up:nth-child(1) { animation-delay: 0.1s; }
+.fade-in-up:nth-child(2) { animation-delay: 0.2s; }
+.fade-in-up:nth-child(3) { animation-delay: 0.3s; }
+.fade-in-up:nth-child(4) { animation-delay: 0.4s; }
+.fade-in-up:nth-child(5) { animation-delay: 0.5s; }
+
+/* ===== НОВІ СТИЛІ ДЛЯ ОНОВЛЕНОГО ДИЗАЙНУ PRACTICE PAGE ===== */
+
+/* Анімації для карток вправ */
+@keyframes practice-card-hover {
+    0% {
+        transform: translateY(0) scale(1);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    100% {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+}
+
+.practice-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.practice-card:hover {
+    animation: practice-card-hover 0.3s ease-out forwards;
+}
+
+/* Градієнтні кнопки з hover ефектами */
+.gradient-button {
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.gradient-button::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+    transition: left 0.5s;
+}
+
+.gradient-button:hover::before {
+    left: 100%;
+}
+
+/* Плавна анімація для progress bar */
+@keyframes progress-fill {
+    0% {
+        width: 0%;
+        opacity: 0.7;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+.progress-bar {
+    animation: progress-fill 1s ease-out;
+}
+
+/* Анімації для статистики */
+@keyframes stat-counter {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    50% {
+        transform: scale(1.1);
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.stat-number {
+    animation: stat-counter 0.6s ease-out;
+}
+
+/* Покращені backdrop blur ефекти */
+.backdrop-blur-custom {
+    backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Анімації для табів */
+.tab-indicator {
+    position: relative;
+}
+
+.tab-indicator::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.tab-indicator.active::after {
+    transform: scaleX(1);
+}
+
+/* Floating elements effect */
+@keyframes float {
+    0%, 100% {
+        transform: translateY(0px);
+    }
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.floating-element {
+    animation: float 3s ease-in-out infinite;
+}
+
+/* Гладкі градієнти для фонів */
+.gradient-bg-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.gradient-bg-secondary {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.gradient-bg-success {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+/* Покращені тіні */
+.shadow-custom {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1), 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.shadow-custom-lg {
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1), 0 8px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* Анімація для іконок */
+@keyframes icon-bounce {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.icon-bounce:hover {
+    animation: icon-bounce 0.6s ease-in-out;
+}
+
+/* Покращені border радіуси */
+.rounded-custom {
+    border-radius: 1.5rem;
+}
+
+.rounded-custom-lg {
+    border-radius: 2rem;
+}
+
+/* Анімація появи для карток */
+@keyframes slide-in-up {
+    0% {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.slide-in-up {
+    animation: slide-in-up 0.6s ease-out;
+}
+
+/* Staggered анімація для груп елементів */
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }
+.stagger-4 { animation-delay: 0.4s; }
+.stagger-5 { animation-delay: 0.5s; }
+
+/* Responsive покращення */
+@media (max-width: 640px) {
+    .practice-card {
+        padding: 1.5rem;
+    }
+
+    .gradient-button {
+        padding: 0.75rem 1.5rem;
+        font-size: 0.875rem;
+    }
+
+    .stat-number {
+        font-size: 1.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .backdrop-blur-custom {
+        backdrop-filter: blur(8px);
+    }
+}
+
+/* Темна тема підтримка (якщо потрібно в майбутньому) */
+@media (prefers-color-scheme: dark) {
+    .backdrop-blur-custom {
+        background: rgba(17, 24, 39, 0.8);
+        border: 1px solid rgba(55, 65, 81, 0.3);
+    }
+}
+
+/* Accessibility покращення */
+@media (prefers-reduced-motion: reduce) {
+    .practice-card,
+    .gradient-button,
+    .floating-element,
+    .slide-in-up {
+        animation: none !important;
+        transition: none !important;
+    }
+}
+
+/* Focus states для кращої доступності */
+.practice-card:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.gradient-button:focus-visible {
+    outline: 2px solid #ffffff;
+    outline-offset: 2px;
+}
