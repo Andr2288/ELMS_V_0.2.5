@@ -1,4 +1,4 @@
-// frontend/src/pages/HomePage.jsx - ДОДАНО ПОШУК КАРТОК
+// frontend/src/pages/HomePage.jsx - ВИПРАВЛЕНО: ПРОБЛЕМА ЗАВИСАННЯ ПРИ ПОВЕРНЕННІ
 
 import { useState, useEffect, useMemo } from "react";
 import { useFlashcardStore } from "../store/useFlashcardStore.js";
@@ -29,7 +29,16 @@ const HomePage = () => {
         selectedCategory
     } = useCategoryStore();
 
-    const { updateSetting, getGeneralSettings } = useUserSettingsStore();
+    // ВИПРАВЛЕНО: Спрощене завантаження налаштувань
+    const {
+        settings,
+        loadSettings,
+        isLoading: isLoadingSettings,
+        areSettingsLoaded,
+        getGeneralSettings,
+        getCategorySortSettings,
+        getFlashcardSortSettings
+    } = useUserSettingsStore();
 
     const [currentView, setCurrentView] = useState("categories"); // "categories", "flashcards"
     const [flashcardViewMode, setFlashcardViewMode] = useState("grid"); // "grid" or "detailed"
@@ -50,6 +59,10 @@ const HomePage = () => {
 
     const [allFlashcards, setAllFlashcards] = useState([]);
 
+    // ВИПРАВЛЕНО: Простий стан ініціалізації без складної retry логіки
+    const [isAppInitialized, setIsAppInitialized] = useState(false);
+    const [initializationStarted, setInitializationStarted] = useState(false);
+
     // ДОДАНО: Фільтровані картки на основі пошукового запиту
     const filteredFlashcards = useMemo(() => {
         if (!searchQuery.trim()) {
@@ -69,18 +82,115 @@ const HomePage = () => {
         });
     }, [flashcards, searchQuery]);
 
+    // ВИПРАВЛЕНО: Спрощена ініціалізація без retry логіки
     useEffect(() => {
-        getCategories();
-        if (currentView === "categories") {
-            getFlashcards();
-        }
-    }, [getCategories, currentView]);
+        const initializeApp = async () => {
+            if (initializationStarted) {
+                return; // Запобігаємо повторному запуску
+            }
 
+            console.log("🚀 HomePage: Starting app initialization...");
+            setInitializationStarted(true);
+
+            try {
+                // Завантажуємо налаштування (без retry - просто один раз)
+                if (!areSettingsLoaded()) {
+                    console.log("📋 HomePage: Loading settings...");
+                    try {
+                        await loadSettings();
+                        console.log("✅ HomePage: Settings loaded successfully");
+                    } catch (settingsError) {
+                        console.warn("⚠️ HomePage: Settings loading failed, will use defaults:", settingsError);
+                        // Продовжуємо без налаштувань - використаємо fallback
+                    }
+                }
+
+                // Завантажуємо категорії
+                await getCategories();
+                console.log("📁 HomePage: Categories loaded");
+
+                // Якщо ми на головній сторінці, завантажуємо всі картки
+                if (currentView === "categories") {
+                    await getFlashcards();
+                    console.log("📚 HomePage: All flashcards loaded");
+                }
+
+                console.log("✅ HomePage: App initialization completed");
+                setIsAppInitialized(true);
+
+            } catch (error) {
+                console.error("❌ HomePage: App initialization failed:", error);
+                // Навіть при помилці дозволяємо інтерфейсу завантажитися
+                setIsAppInitialized(true);
+            }
+        };
+
+        initializeApp();
+    }, []); // ВИПРАВЛЕНО: Тільки один раз при монтуванні
+
+    // ВИПРАВЛЕНО: Скидаємо стани ініціалізації при демонтуванні
+    useEffect(() => {
+        return () => {
+            console.log("🔄 HomePage: Component unmounting, resetting initialization states");
+            setInitializationStarted(false);
+            setIsAppInitialized(false);
+        };
+    }, []);
+
+    // ДОДАНО: Окремий useEffect для відстеження оновлень allFlashcards
     useEffect(() => {
         if (currentView === "categories") {
             setAllFlashcards(flashcards);
         }
     }, [flashcards, currentView]);
+
+    // ВИПРАВЛЕНО: Надійне отримання налаштувань сортування з fallback значеннями
+    const getSortingSettings = () => {
+        try {
+            if (areSettingsLoaded() && settings) {
+                const categorySortSettings = getCategorySortSettings();
+                const flashcardSortSettings = getFlashcardSortSettings();
+
+                console.log("📋 HomePage: Using loaded sort settings:", {
+                    category: categorySortSettings,
+                    flashcard: flashcardSortSettings
+                });
+
+                return {
+                    categories: categorySortSettings,
+                    flashcards: flashcardSortSettings
+                };
+            }
+        } catch (error) {
+            console.warn("⚠️ HomePage: Error getting sort settings:", error);
+        }
+
+        // Fallback значення
+        const fallbackSettings = {
+            categories: { sortBy: "date", sortOrder: "desc" },
+            flashcards: { sortBy: "date", sortOrder: "desc" }
+        };
+
+        console.log("📋 HomePage: Using fallback sort settings:", fallbackSettings);
+        return fallbackSettings;
+    };
+
+    // ДОДАНО: Безпечне отримання налаштувань з кешуванням
+    const sortingSettings = useMemo(() => {
+        return getSortingSettings();
+    }, [settings, areSettingsLoaded()]);
+
+    // ДОДАНО: Timeout для гарантованого завершення завантаження
+    useEffect(() => {
+        const timeoutId = setTimeout(() => {
+            if (!isAppInitialized) {
+                console.warn("⏰ HomePage: Initialization timeout - forcing app to load with defaults");
+                setIsAppInitialized(true);
+            }
+        }, 10000); // 10 секунд максимум
+
+        return () => clearTimeout(timeoutId);
+    }, [isAppInitialized]);
 
     // ДОДАНО: Обробник пошуку при натисканні Enter
     const handleSearchSubmit = (e) => {
@@ -318,15 +428,34 @@ const HomePage = () => {
     // ДОДАНО: Визначаємо які картки показувати
     const cardsToDisplay = searchQuery.trim() ? filteredFlashcards : flashcards;
 
-    if (isLoadingCategories && currentView === "categories") {
+    // ВИПРАВЛЕНО: Простіша перевірка стану завантаження
+    const shouldShowLoading = !isAppInitialized && currentView === "categories";
+
+    if (shouldShowLoading) {
         return (
             <div className="ml-64 min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 flex items-center justify-center">
                 <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Завантаження...</p>
+                    <p className="mt-4 text-gray-600">Завантаження додатку...</p>
+                    <p className="mt-2 text-sm text-gray-500">
+                        {isLoadingSettings ? "Налаштування..." :
+                            isLoadingCategories ? "Категорії..." : "Ініціалізація..."}
+                    </p>
                 </div>
             </div>
         );
+    }
+
+    // ВИПРАВЛЕНО: Показуємо інформацію про статус в режимі розробки
+    if (process.env.NODE_ENV === 'development') {
+        console.log("🔍 HomePage Debug Info:", {
+            isAppInitialized,
+            initializationStarted,
+            areSettingsLoaded: areSettingsLoaded(),
+            settings: !!settings,
+            sortingSettings,
+            shouldShowLoading
+        });
     }
 
     return (
@@ -337,6 +466,8 @@ const HomePage = () => {
                         onCategorySelect={handleCategorySelect}
                         selectedCategoryId={selectedCategoryData?._id}
                         uncategorizedCount={allFlashcards?.filter(card => !card.categoryId).length || 0}
+                        // ВИПРАВЛЕНО: Передаємо налаштування сортування надійно
+                        sortSettings={sortingSettings.categories}
                     />
                 </div>
             ) : (

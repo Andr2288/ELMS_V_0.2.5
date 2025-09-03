@@ -1,4 +1,4 @@
-// backend/src/models/flashcard.model.js - ОНОВЛЕНО З ПІДТРИМКОЮ LISTEN-AND-CHOOSE
+// backend/src/models/flashcard.model.js - ВИПРАВЛЕНО: REVIEW КАРТКИ НЕ БЕРУТЬ УЧАСТЬ У ВПРАВАХ
 
 import mongoose from "mongoose";
 
@@ -294,12 +294,15 @@ flashcardSchema.methods.getProgressInfo = function() {
     };
 };
 
-// ВИПРАВЛЕНО: Логіка reading comprehension з НЕГАЙНИМ позначенням слів як використаних
+// ВИПРАВЛЕНО: Логіка reading comprehension з НЕГАЙНИМ позначенням слів як використаних - тільки learning картки
 flashcardSchema.statics.getWordsForReadingComprehensionWithRotationInfo = async function(userId, categoryId = null, requestedCount = 3, sessionExcludeIds = []) {
     try {
         console.log(`🔍 Getting ${requestedCount} words for RC: userId=${userId}, categoryId=${categoryId}, sessionExcluded=${sessionExcludeIds.length}`);
 
-        const baseQuery = { userId };
+        const baseQuery = {
+            userId,
+            status: "learning"  // ВИПРАВЛЕНО: тільки learning картки
+        };
 
         // Фільтруємо по категорії
         if (categoryId && categoryId !== 'all' && categoryId !== null) {
@@ -310,14 +313,14 @@ flashcardSchema.statics.getWordsForReadingComprehensionWithRotationInfo = async 
             }
         }
 
-        console.log(`📋 Base query for category:`, baseQuery);
+        console.log(`📋 Base query for category (learning only):`, baseQuery);
 
-        // КРОК 1: Отримуємо ВСІ слова в категорії для перевірки ротації
-        const allWordsInCategory = await this.find(baseQuery);
-        console.log(`📊 Total words in category: ${allWordsInCategory.length}`);
+        // КРОК 1: Отримуємо ВСІ learning слова в категорії для перевірки ротації
+        const allLearningWordsInCategory = await this.find(baseQuery);
+        console.log(`📊 Total learning words in category: ${allLearningWordsInCategory.length}`);
 
-        if (allWordsInCategory.length === 0) {
-            console.warn(`⚠️ No words found in category`);
+        if (allLearningWordsInCategory.length === 0) {
+            console.warn(`⚠️ No learning words found in category`);
             return {
                 words: [],
                 wasRotationApplied: false,
@@ -325,21 +328,21 @@ flashcardSchema.statics.getWordsForReadingComprehensionWithRotationInfo = async 
             };
         }
 
-        if (allWordsInCategory.length < requestedCount) {
-            console.warn(`⚠️ Not enough words in category: ${allWordsInCategory.length} < ${requestedCount}`);
+        if (allLearningWordsInCategory.length < requestedCount) {
+            console.warn(`⚠️ Not enough learning words in category: ${allLearningWordsInCategory.length} < ${requestedCount}`);
             return {
-                words: allWordsInCategory.slice(0, requestedCount),
+                words: allLearningWordsInCategory.slice(0, requestedCount),
                 wasRotationApplied: false,
-                allCategoryWords: allWordsInCategory
+                allCategoryWords: allLearningWordsInCategory
             };
         }
 
         // КРОК 2: ПЕРЕВІРКА РОТАЦІЇ - чи є достатньо слів з isReadingComprehensionExercise = false
-        const availableWordsBeforeRotation = allWordsInCategory.filter(word =>
+        const availableWordsBeforeRotation = allLearningWordsInCategory.filter(word =>
             !word.isReadingComprehensionExercise && !sessionExcludeIds.includes(word._id.toString())
         );
 
-        console.log(`✨ Available words before rotation check: ${availableWordsBeforeRotation.length} (need ${requestedCount})`);
+        console.log(`✨ Available learning words before rotation check: ${availableWordsBeforeRotation.length} (need ${requestedCount})`);
 
         let wasRotationApplied = false;
         let availableWords = availableWordsBeforeRotation;
@@ -348,12 +351,12 @@ flashcardSchema.statics.getWordsForReadingComprehensionWithRotationInfo = async 
         if (availableWordsBeforeRotation.length < requestedCount) {
             console.log(`🔄 ROTATION NEEDED: only ${availableWordsBeforeRotation.length} words available, need ${requestedCount}`);
 
-            // ОБНУЛЯЄМО ВСІ СЛОВА В КАТЕГОРІЇ (без врахування sessionExcludeIds)
+            // ОБНУЛЯЄМО ВСІ LEARNING СЛОВА В КАТЕГОРІЇ (без врахування sessionExcludeIds)
             const resetResult = await this.updateMany(baseQuery, {
                 $set: { isReadingComprehensionExercise: false }
             });
 
-            console.log(`✅ ROTATION APPLIED: Reset ${resetResult.modifiedCount} words in category`);
+            console.log(`✅ ROTATION APPLIED: Reset ${resetResult.modifiedCount} learning words in category`);
             wasRotationApplied = true;
 
             // Тепер отримуємо всі доступні слова після ротації
@@ -362,16 +365,16 @@ flashcardSchema.statics.getWordsForReadingComprehensionWithRotationInfo = async 
                 !sessionExcludeIds.includes(word._id.toString())
             );
 
-            console.log(`🎲 Available words after rotation: ${availableWords.length}`);
+            console.log(`🎲 Available learning words after rotation: ${availableWords.length}`);
         }
 
         // КРОК 3: Вибираємо слова для поточного кроку
         if (availableWords.length < requestedCount) {
-            console.warn(`⚠️ Still not enough words after rotation: ${availableWords.length} < ${requestedCount}`);
+            console.warn(`⚠️ Still not enough learning words after rotation: ${availableWords.length} < ${requestedCount}`);
             return {
                 words: availableWords.slice(0, requestedCount),
                 wasRotationApplied: wasRotationApplied,
-                allCategoryWords: allWordsInCategory
+                allCategoryWords: allLearningWordsInCategory
             };
         }
 
@@ -379,7 +382,7 @@ flashcardSchema.statics.getWordsForReadingComprehensionWithRotationInfo = async 
         const shuffled = shuffleArray(availableWords);
         const selectedWords = shuffled.slice(0, requestedCount);
 
-        console.log(`🎯 Selected ${selectedWords.length} words for RC (shuffled):`, selectedWords.map(w => w.text));
+        console.log(`🎯 Selected ${selectedWords.length} learning words for RC (shuffled):`, selectedWords.map(w => w.text));
 
         // КЛЮЧОВА ЗМІНА: НЕГАЙНО позначаємо вибрані слова як використані
         const selectedWordIds = selectedWords.map(word => word._id);
@@ -392,15 +395,15 @@ flashcardSchema.statics.getWordsForReadingComprehensionWithRotationInfo = async 
                 }}
         );
 
-        console.log(`🏷️ IMMEDIATELY marked ${updateResult.modifiedCount} words as used in Reading Comprehension`);
+        console.log(`🏷️ IMMEDIATELY marked ${updateResult.modifiedCount} learning words as used in Reading Comprehension`);
 
         // Populate categoryId для selectedWords та оновлюємо їх стан
         const updatedSelectedWords = await this.find({ _id: { $in: selectedWordIds } })
             .populate('categoryId', 'name color');
 
-        console.log(`🔄 Updated selected words status:`, updatedSelectedWords.map(w => `${w.text}: ${w.isReadingComprehensionExercise}`));
+        console.log(`🔄 Updated selected learning words status:`, updatedSelectedWords.map(w => `${w.text}: ${w.isReadingComprehensionExercise}`));
 
-        // КРОК 4: Отримуємо АКТУАЛЬНІ дані всіх слів категорії для ExerciseResult
+        // КРОК 4: Отримуємо АКТУАЛЬНІ дані всіх learning слів категорії для ExerciseResult
         const finalAllCategoryWords = await this.find(baseQuery).populate('categoryId', 'name color');
 
         return {
@@ -410,12 +413,12 @@ flashcardSchema.statics.getWordsForReadingComprehensionWithRotationInfo = async 
         };
 
     } catch (error) {
-        console.error("❌ Error getting words for reading comprehension:", error);
+        console.error("❌ Error getting learning words for reading comprehension:", error);
         throw error;
     }
 };
 
-// ОНОВЛЕНО: Отримання слів для конкретної вправи (включаючи нову вправу)
+// ВИПРАВЛЕНО: Отримання слів для конкретної вправи - тільки learning картки (включаючи нову вправу)
 flashcardSchema.statics.getWordsForExercise = async function(userId, exerciseType, limit = 10, excludeIds = []) {
     try {
         // Для reading comprehension використовуємо спеціальний метод
@@ -424,44 +427,34 @@ flashcardSchema.statics.getWordsForExercise = async function(userId, exerciseTyp
             return result.words;
         }
 
-        // Логіка для діалогу з рандомізацією
+        // ВИПРАВЛЕНО: Логіка для діалогу - тільки learning картки з рандомізацією
         if (exerciseType === 'dialog') {
-            const baseQuery = { userId };
+            const baseQuery = {
+                userId,
+                status: "learning"  // ВИПРАВЛЕНО: тільки learning картки
+            };
 
             if (excludeIds.length > 0) {
                 baseQuery._id = { $nin: excludeIds };
             }
 
-            const learningWords = await this.find({ ...baseQuery, status: "learning" })
+            const learningWords = await this.find(baseQuery)
                 .populate('categoryId', 'name color')
                 .sort({ lastReviewedAt: 1 });
 
-            const reviewWords = await this.find({ ...baseQuery, status: "review" })
-                .populate('categoryId', 'name color')
-                .sort({ lastReviewedAt: 1 });
+            // ДОДАНО: Перемішуємо learning слова
+            const shuffledWords = shuffleArray(learningWords);
+            const finalWords = shuffledWords.slice(0, limit);
 
-            // ДОДАНО: Перемішуємо кожну групу окремо
-            const shuffledLearning = shuffleArray(learningWords);
-            const shuffledReview = shuffleArray(reviewWords);
-
-            // Вибираємо пропорційно з кожної групи
-            const selectedLearning = shuffledLearning.slice(0, Math.ceil(limit * 0.6));
-            const selectedReview = shuffledReview.slice(0, Math.ceil(limit * 0.4));
-
-            const allWords = [...selectedLearning, ...selectedReview];
-
-            // ДОДАНО: Остаточне перемішування комбінованого списку
-            const finalWords = shuffleArray(allWords).slice(0, limit);
-
-            console.log(`🎲 getWordsForExercise: Found ${finalWords.length} words for ${exerciseType} (shuffled) - learning: ${selectedLearning.length}, review: ${selectedReview.length}`);
+            console.log(`🎲 getWordsForExercise: Found ${finalWords.length} learning words for ${exerciseType} (shuffled):`, finalWords.map(w => w.text));
 
             return finalWords;
         }
 
-        // ОНОВЛЕНО: Логіка для основних вправ з рандомізацією (включаючи нову вправу)
+        // ВИПРАВЛЕНО: Логіка для основних вправ - тільки learning картки з рандомізацією (включаючи нову вправу)
         const learningQuery = {
             userId,
-            status: "learning"
+            status: "learning"  // ВИПРАВЛЕНО: тільки learning картки
         };
 
         if (excludeIds.length > 0) {
@@ -493,36 +486,11 @@ flashcardSchema.statics.getWordsForExercise = async function(userId, exerciseTyp
         learningWords = shuffleArray(learningWords);
         let words = learningWords.slice(0, limit);
 
-        // Якщо learning слів не вистачає, додаємо review слова
-        if (words.length < limit) {
-            const needed = limit - words.length;
-            const reviewQuery = {
-                userId,
-                status: "review"
-            };
-
-            const usedIds = [...excludeIds, ...words.map(w => w._id.toString())];
-            if (usedIds.length > 0) {
-                reviewQuery._id = { $nin: usedIds };
-            }
-
-            // ВИПРАВЛЕНО: Отримуємо всі review слова, потім перемішуємо
-            let reviewWords = await this.find(reviewQuery)
-                .populate('categoryId', 'name color')
-                .sort({ lastReviewedAt: 1 });
-
-            // ДОДАНО: Перемішуємо review слова
-            reviewWords = shuffleArray(reviewWords);
-            const selectedReviewWords = reviewWords.slice(0, needed);
-
-            words = [...words, ...selectedReviewWords];
-        }
-
-        console.log(`🎲 getWordsForExercise: Found ${words.length} words for ${exerciseType} (shuffled):`, words.map(w => w.text));
+        console.log(`🎲 getWordsForExercise: Found ${words.length} learning words for ${exerciseType} (shuffled):`, words.map(w => w.text));
 
         return words;
     } catch (error) {
-        console.error("Error getting words for exercise:", error);
+        console.error("Error getting learning words for exercise:", error);
         throw error;
     }
 };

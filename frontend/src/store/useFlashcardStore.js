@@ -1,4 +1,4 @@
-// frontend/src/store/useFlashcardStore.js - ОНОВЛЕНО З ПІДТРИМКОЮ LISTEN-AND-CHOOSE
+// frontend/src/store/useFlashcardStore.js - ВИПРАВЛЕНО: REVIEW КАРТКИ НЕ БЕРУТЬ УЧАСТЬ У ВПРАВАХ
 
 import { create } from "zustand";
 import { axiosInstance } from "../lib/axios.js";
@@ -258,11 +258,11 @@ export const useFlashcardStore = create((set, get) => ({
 
       // ВИПРАВЛЕНО: Спеціальна обробка для reading comprehension
       if (exerciseType === 'reading-comprehension') {
-        console.log(`📖 Store: Received ${res.data.words.length} words for reading comprehension`);
+        console.log(`📖 Store: Received ${res.data.words.length} learning words for reading comprehension`);
 
         // ВАЖЛИВО: Слова вже позначені як використані на backend, тому оновлюємо store
         if (res.data.words && res.data.words.length > 0) {
-          console.log(`📖 Store: Words already marked as used on backend, updating local store`);
+          console.log(`📖 Store: Learning words already marked as used on backend, updating local store`);
 
           // Створюємо мапу оновлених слів
           const updatedWordsMap = new Map();
@@ -325,9 +325,9 @@ export const useFlashcardStore = create((set, get) => ({
           console.log(`🔄 Store: Updated flashcards state after rotation`);
         }
 
-        console.log(`📖 Store: Returning ${res.data.words.length} words for reading comprehension`);
+        console.log(`📖 Store: Returning ${res.data.words.length} learning words for reading comprehension`);
       } else {
-        console.log(`🎲 Store: Received ${res.data.words.length} words for ${exerciseType} (shuffled by backend):`, res.data.words.map(w => w.text));
+        console.log(`🎲 Store: Received ${res.data.words.length} learning words for ${exerciseType} (shuffled by backend):`, res.data.words.map(w => w.text));
       }
 
       // ДОДАНО: Додаткове перемішування на frontend для максимальної рандомізації
@@ -450,6 +450,11 @@ export const useFlashcardStore = create((set, get) => ({
 
   // ОНОВЛЕНО: Перевірка можливості використання слова у вправі (включаючи нову вправу)
   canUseInExercise: (flashcard, exerciseType) => {
+    // ВИПРАВЛЕНО: Review картки не можуть використовуватися у вправах
+    if (flashcard.status === 'review') {
+      return false;
+    }
+
     switch (exerciseType) {
       case 'sentence-completion':
         return !flashcard.isSentenceCompletionExercise;
@@ -699,9 +704,11 @@ export const useFlashcardStore = create((set, get) => ({
     }
   },
 
-  // ДОДАНО: Функції з додатковою рандомізацією для практики
+  // ВИПРАВЛЕНО: Функції з додатковою рандомізацією для практики - тільки learning картки
   getRandomizedFlashcardsByCategory: (categoryId) => {
     const cards = get().flashcards.filter(card => {
+      if (card.status === 'review') return false; // ВИПРАВЛЕНО: виключаємо review картки
+
       if (categoryId === 'uncategorized') {
         return !card.categoryId;
       }
@@ -712,7 +719,9 @@ export const useFlashcardStore = create((set, get) => ({
   },
 
   getRandomizedUncategorizedFlashcards: () => {
-    const cards = get().flashcards.filter(card => !card.categoryId);
+    const cards = get().flashcards.filter(card =>
+        !card.categoryId && card.status === 'learning' // ВИПРАВЛЕНО: тільки learning картки
+    );
     return shuffleArray(cards);
   },
 
@@ -806,46 +815,49 @@ export const useFlashcardStore = create((set, get) => ({
     return { percentage, completedWords, totalWords };
   },
 
-  // Спеціальні методи для reading comprehension з правильною логікою
+  // ВИПРАВЛЕНО: Спеціальні методи для reading comprehension - тільки learning картки
   getWordsUsedInReadingComprehension: () => {
-    return get().flashcards.filter(card => card.isReadingComprehensionExercise);
+    return get().flashcards.filter(card =>
+        card.status === 'learning' && card.isReadingComprehensionExercise // ВИПРАВЛЕНО: тільки learning картки
+    );
   },
 
   getAvailableWordsForReadingComprehension: () => {
-    return get().flashcards.filter(card => !card.isReadingComprehensionExercise);
+    return get().flashcards.filter(card =>
+        card.status === 'learning' && !card.isReadingComprehensionExercise // ВИПРАВЛЕНО: тільки learning картки
+    );
   },
 
   getReadingComprehensionStats: () => {
-    const flashcards = get().flashcards;
-    const usedInReading = flashcards.filter(card => card.isReadingComprehensionExercise).length;
-    const availableForReading = flashcards.filter(card => !card.isReadingComprehensionExercise).length;
+    const learningCards = get().flashcards.filter(card => card.status === 'learning'); // ВИПРАВЛЕНО: тільки learning картки
+    const usedInReading = learningCards.filter(card => card.isReadingComprehensionExercise).length;
+    const availableForReading = learningCards.filter(card => !card.isReadingComprehensionExercise).length;
 
     return {
       used: usedInReading,
       available: availableForReading,
-      total: flashcards.length,
-      percentage: flashcards.length > 0 ? Math.round((usedInReading / flashcards.length) * 100) : 0
+      total: learningCards.length, // ВИПРАВЛЕНО: тільки learning картки в статистиці
+      percentage: learningCards.length > 0 ? Math.round((usedInReading / learningCards.length) * 100) : 0
     };
   },
 
   // Функція для діагностики стану reading comprehension
   debugReadingComprehensionState: (categoryId = null) => {
-    const flashcards = get().flashcards;
+    let targetCards = get().flashcards.filter(card => card.status === 'learning'); // ВИПРАВЛЕНО: тільки learning картки
 
-    let targetCards = flashcards;
     if (categoryId && categoryId !== 'all') {
       if (categoryId === 'uncategorized') {
-        targetCards = flashcards.filter(card => !card.categoryId);
+        targetCards = targetCards.filter(card => !card.categoryId);
       } else {
-        targetCards = flashcards.filter(card => card.categoryId?._id === categoryId);
+        targetCards = targetCards.filter(card => card.categoryId?._id === categoryId);
       }
     }
 
     const used = targetCards.filter(card => card.isReadingComprehensionExercise);
     const available = targetCards.filter(card => !card.isReadingComprehensionExercise);
 
-    console.log(`📊 Reading Comprehension Debug for category "${categoryId || 'all'}":`);
-    console.log(`   Total cards: ${targetCards.length}`);
+    console.log(`📊 Reading Comprehension Debug for category "${categoryId || 'all'}" (learning cards only):`);
+    console.log(`   Total learning cards: ${targetCards.length}`);
     console.log(`   Used in RC: ${used.length} - ${used.map(c => c.text).join(', ')}`);
     console.log(`   Available for RC: ${available.length} - ${available.map(c => c.text).join(', ')}`);
     console.log(`   Need rotation: ${available.length < 3 ? 'YES' : 'NO'}`);
@@ -860,10 +872,10 @@ export const useFlashcardStore = create((set, get) => ({
     };
   },
 
-  // ДОДАНО: Нові функції для рандомізованого вибору карток
+  // ВИПРАВЛЕНО: Нові функції для рандомізованого вибору карток - тільки learning картки
   getRandomCards: (count = 1, excludeIds = []) => {
     const availableCards = get().flashcards.filter(card =>
-        !excludeIds.includes(card._id)
+        card.status === 'learning' && !excludeIds.includes(card._id) // ВИПРАВЛЕНО: тільки learning картки
     );
 
     const shuffled = shuffleArray(availableCards);
@@ -882,6 +894,7 @@ export const useFlashcardStore = create((set, get) => ({
   getRandomCardsByCategory: (categoryId, count = 1, excludeIds = []) => {
     const availableCards = get().flashcards.filter(card => {
       if (excludeIds.includes(card._id)) return false;
+      if (card.status !== 'learning') return false; // ВИПРАВЛЕНО: тільки learning картки
 
       if (categoryId === 'uncategorized') {
         return !card.categoryId;
@@ -893,14 +906,14 @@ export const useFlashcardStore = create((set, get) => ({
     return shuffled.slice(0, Math.min(count, shuffled.length));
   },
 
-  // ОНОВЛЕНО: Функція для отримання рандомізованих карток для різних типів вправ (включаючи нову)
+  // ОНОВЛЕНО: Функція для отримання рандомізованих карток для різних типів вправ (включаючи нову) - тільки learning картки
   getRandomCardsForExercise: (exerciseType, count = 1, excludeIds = []) => {
     const availableCards = get().flashcards.filter(card =>
         get().canUseInExercise(card, exerciseType) && !excludeIds.includes(card._id)
     );
 
     const shuffled = shuffleArray(availableCards);
-    console.log(`🎲 Store: Selected ${Math.min(count, shuffled.length)} random cards for ${exerciseType}:`,
+    console.log(`🎲 Store: Selected ${Math.min(count, shuffled.length)} random learning cards for ${exerciseType}:`,
         shuffled.slice(0, count).map(c => c.text));
 
     return shuffled.slice(0, Math.min(count, shuffled.length));

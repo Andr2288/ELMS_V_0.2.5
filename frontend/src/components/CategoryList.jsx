@@ -562,9 +562,9 @@ const CategoryList = ({ onCategorySelect, selectedCategoryId, uncategorizedCount
             </div>
 
             {/* Categories List */}
-            <div className="p-8 space-y-4">
+            <div className="px-30 py-8 space-y-4">
                 {/* System Categories */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                     <CategoryRow
                         categoryData={allCategoriesData}
                         isSelected={!selectedCategoryId}
