@@ -4,7 +4,7 @@
 export const TEXT_TYPES = [
     'documentary', 'story', 'news', 'article', 'blog', 'scientific',
     'announcement', 'advertisement', 'instruction',
-    'review on product / video / post etc', 'letter', 'report', 'documentation',
+    'review on product / video / post etc', 'letter', 'documentation',
     'dialog', 'interview', 'speech', 'comment', 'social media post',
 ];
 
@@ -75,18 +75,19 @@ export const generatePrompt = (promptType, text, englishLevel, categoryContext =
             return `English level you must to use in your output: ${englishLevel}. A detailed definition/explanation of meaning and usage (can be longer and more comprehensive) for: ${text}. Format example for output: A valley is a long, low area of land between hills or mountains. It is often formed by rivers or glaciers and can be wide or narrow. Valleys are places where people can live, grow crops, or travel through because they are lower and sometimes flatter than the surrounding land.${categoryContext}`;
         case "exerciseExplanation":
             return `English level: ${englishLevel}. 
-Task: Create an explanation/description for the word/phrase: "${text}". 
+Task: Create an detailed explanation/description for the word/phrase: "${text}". 
 
 Rules:
-- Write exactly 1 sentence.
+- Write 1-2 sentences max.
 - Do NOT use the target word itself or its direct synonyms/translations.
 - Do NOT add extra phrases like "Here is an explanation" or "Certainly".
-- The explanation should match the given English level.
+- The explanation should be in the given English level.
+- If the given English level is A1 - use very simple language for beginners and explain in simple words 
 - Output must be only the explanation sentence.
 
 ${categoryContext}
 
-✅ Correct example for word "bicycle": "A two-wheeled vehicle that you move forward by pedaling with your feet."
+✅ Correct example for word "bicycle": "A two-wheeled vehicle that you move forward by pedaling with your feet. It usually has handlebars to steer, a seat to sit on, and is powered only by the rider."
 ❌ Incorrect example for word "bicycle": "A bicycle is a bike people ride." (uses the word and direct synonym)
 ❌ Incorrect example for word "Indubitably": "Certainly! Here is a clear and concise explanation for the word 'Indubitably' at A1 level: 'Used to say something is true without any doubt.'" (extra phrases, not 1 sentence)`
         case "shortDescription":
@@ -302,7 +303,7 @@ MANDATORY REQUIREMENTS:
 - Each alternative has exactly 3 sub-alternatives
 - Each sub-alternative has exactly 3 final choices
 - Use exactly 3 words from: ${text}
-- Language appropriate for ${englishLevel} level
+- You should write everything in ${englishLevel} level
 - Each conversation path should be unique and interesting
 - The dialog should match the ${selectedDialogType} context and tone
 
@@ -337,6 +338,8 @@ CRITICAL REQUIREMENTS:
 - facts[1] and facts[2] must be FALSE and not mentioned in the text
 - Make sure the text style, tone, and structure match the ${selectedTextType} format
 - Don't make it sound like definitions to the words / phrases or explanations
+- You should write everything in ${englishLevel} level
+- If the given English level is A1 - use simple language for beginners
 - Make sure twice you made everything right
 
 Example:
@@ -372,7 +375,7 @@ Create reading comprehension exercise using these EXACT 3 words: ${text}${catego
 
             return `Create a sentence completion exercise for the word "${text}". English level: ${englishLevel}.
 
-IMPORTANT: Create a text that sounds like it comes from a ${selectedSentenceType}.
+IMPORTANT: Create a detailed text that sounds like it comes from a ${selectedSentenceType}.
 
 Return a JSON object with this exact structure:
 {
@@ -389,19 +392,20 @@ Requirements:
 - audioSentence: Complete grammatically correct sentence
 - correctForm: The actual form of "${text}" that fits (may be different due to tense, plural, etc.)
 - hint: Create an explanation/description for the word/phrase: "${text}". Make it clear and concise but don't use the word itself or its direct translations. The explanation should be 1 sentence long and help students identify the word.
-- Sentence should be for ${englishLevel} level
+- Sentence should be in ${englishLevel} level
+- If the given English level is A1 - use very simple language for beginners
 
 Example for word "clear" in "weather forecast" style:
 
 {
   "sentenceType": "weather forecast",
-  "displaySentence": "Tomorrow the sky will be ____ throughout the day, with no clouds expected and temperatures rising steadily in the afternoon.",
-  "audioSentence": "Tomorrow the sky will be clear throughout the day, with no clouds expected and temperatures rising steadily in the afternoon.",
+  "displaySentence": "Tomorrow the sky will be ____ throughout the day, with no clouds expected. Temperatures will rise steadily in the afternoon, bringing warm and pleasant weather.",
+  "audioSentence": "Tomorrow the sky will be clear throughout the day, with no clouds expected. Temperatures will rise steadily in the afternoon, bringing warm and pleasant weather.",
   "correctForm": "clear",
   "hint": "Typical word in forecasts when the sky has no clouds at all."
 }
 
-Example for word "clear" in "story" style:
+Example for word "hungry" in "story" style:
 
 {
   "sentenceType": "hungry",

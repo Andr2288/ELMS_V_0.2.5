@@ -1380,7 +1380,7 @@ const PracticePage = () => {
 
                 {/* ОНОВЛЕНО: Індикатор оптимізації з інформацією про валідні вправи */}
                 {categoryExercisesList.length > 0 && (
-                    <div className="absolute top-4 right-4">
+                    <div className="absolute top-11 right-8">
                         <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
                             <Zap className="w-4 h-4 mr-1" />
                             {categoryExercisesList.filter(ex => !ex.isCompleted).length} готових вправ
@@ -1493,7 +1493,7 @@ const PracticePage = () => {
                         <div>
                             <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                                 <Sparkles className="w-5 h-5 mr-2 text-emerald-500" />
-                                Швидкий старт ⚡ (Миттєве завантаження)
+                                Швидкий старт
                             </h3>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -1521,12 +1521,6 @@ const PracticePage = () => {
                                             }`}>
                                                 <div className="flex items-center justify-between mb-4">
                                                     <practice.icon className="w-8 h-8" />
-                                                    {isAvailable && !isProcessing && !isRestarting && (
-                                                        <div className="flex items-center">
-                                                            <Zap className="w-4 h-4 mr-1" />
-                                                            <span className="text-xs">Миттєво</span>
-                                                        </div>
-                                                    )}
                                                     {isAvailable && !isProcessing && !isRestarting && (
                                                         <ArrowRight className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                                     )}
@@ -1560,10 +1554,10 @@ const PracticePage = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <h4 className="text-2xl font-bold mb-2">
-                                            Міксована практика ⚡
+                                            Міксована практика
                                         </h4>
                                         <p className="text-blue-100 mb-4">
-                                            Комбінація різних типів вправ для максимального ефекту (миттєве завантаження)
+                                            Комбінація різних типів вправ для максимального ефекту
                                         </p>
                                         <div className="flex items-center space-x-4 text-sm">
                                             <div className="flex items-center">
@@ -1577,10 +1571,6 @@ const PracticePage = () => {
                                             <div className="flex items-center">
                                                 <TrendingUp className="w-4 h-4 mr-1" />
                                                 Всі типи вправ
-                                            </div>
-                                            <div className="flex items-center">
-                                                <Zap className="w-4 h-4 mr-1" />
-                                                Миттєво
                                             </div>
                                         </div>
                                         {/* ДОДАНО: Індикатор доступних вправ */}
@@ -1609,7 +1599,7 @@ const PracticePage = () => {
                     <div className="mb-12">
                         <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                             <Target className="w-5 h-5 mr-2 text-blue-500" />
-                            Основні вправи ⚡ (Миттєве завантаження)
+                            Основні вправи
                         </h3>
                         <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
                             {coreExercisesData.map((exercise) => {
@@ -1632,14 +1622,6 @@ const PracticePage = () => {
                                     >
                                         <div>
                                             <div className={`absolute inset-0 bg-gradient-to-br ${exercise.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl`} />
-
-                                            {/* ДОДАНО: Індикатор миттєвого завантаження */}
-                                            <div className="absolute top-4 right-4">
-                                                <div className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
-                                                    <Zap className="w-3 h-3 mr-1" />
-                                                    Миттєво
-                                                </div>
-                                            </div>
 
                                             <div className={`w-16 h-16 bg-gradient-to-br ${exercise.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                                                 <Icon className="w-8 h-8 text-white" />
@@ -1699,7 +1681,7 @@ const PracticePage = () => {
                     <div className="mb-12">
                         <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                             <Layers className="w-5 h-5 mr-2 text-purple-500" />
-                            Додаткові вправи (Мережеве завантаження)
+                            Додаткові вправи
                         </h3>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -1719,14 +1701,6 @@ const PracticePage = () => {
                                     >
                                         <div>
                                             <div className={`absolute inset-0 bg-gradient-to-br ${exercise.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl`} />
-
-                                            {/* ДОДАНО: Індикатор мережевого завантаження */}
-                                            <div className="absolute top-4 right-4">
-                                                <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
-                                                    <Globe className="w-3 h-3 mr-1" />
-                                                    Мережа
-                                                </div>
-                                            </div>
 
                                             <div className={`w-16 h-16 bg-gradient-to-br ${exercise.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                                                 <Icon className="w-8 h-8 text-white" />
