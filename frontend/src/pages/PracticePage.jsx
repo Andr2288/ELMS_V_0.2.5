@@ -1,11 +1,11 @@
-// frontend/src/pages/PracticePage.jsx - ОНОВЛЕНО З НОВОЮ ВПРАВОЮ ТА КНОПКОЮ МІГРАЦІЇ
+// frontend/src/pages/PracticePage.jsx - ОПТИМІЗОВАНО: ШВИДКЕ ЗАВАНТАЖЕННЯ ВПРАВ
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useFlashcardStore } from "../store/useFlashcardStore.js";
 import { useCategoryStore } from "../store/useCategoryStore.js";
 import MultipleChoiceExercise from "../components/exercises/MultipleChoiceExercise.jsx";
 import ListenAndFillExercise from "../components/exercises/ListenAndFillExercise.jsx";
-import ListenAndChooseExercise from "../components/exercises/ListenAndChooseExercise.jsx"; // ДОДАНО: нова вправа
+import ListenAndChooseExercise from "../components/exercises/ListenAndChooseExercise.jsx";
 import SentenceCompletionExercise from "../components/exercises/SentenceCompletionExercise.jsx";
 import DialogExercise from "../components/exercises/DialogExercise.jsx";
 import ReadingComprehensionExercise from "../components/exercises/ReadingComprehensionExercise.jsx";
@@ -37,7 +37,7 @@ const PracticePage = () => {
         getWordsForExercise,
         getLearningStats,
         learningStats,
-        migrateFlashcardsToLatestVersion // ДОДАНО: функція міграції
+        migrateFlashcardsToLatestVersion
     } = useFlashcardStore();
     const { categories, getCategories } = useCategoryStore();
 
@@ -58,7 +58,11 @@ const PracticePage = () => {
     const [currentQuestion, setCurrentQuestion] = useState(null);
     const [questionLoading, setQuestionLoading] = useState(false);
 
-    // ДОДАНО: Стейт для відстеження використаних слів в сесії (для Reading Comprehension)
+    // ДОДАНО: Стейт для зберігання списку вправ категорії
+    const [categoryExercisesList, setCategoryExercisesList] = useState([]);
+    const [currentSessionExercises, setCurrentSessionExercises] = useState([]);
+
+    // Стейт для відстеження використаних слів в сесії (для Reading Comprehension)
     const [sessionUsedWordIds, setSessionUsedWordIds] = useState([]);
 
     // Стейт для відстеження прогресу в реальному часі
@@ -67,7 +71,7 @@ const PracticePage = () => {
     // Стейт для лоадера при restart
     const [isRestarting, setIsRestarting] = useState(false);
 
-    // ДОДАНО: Стейт для кнопки міграції
+    // Стейт для кнопки міграції
     const [isMigrating, setIsMigrating] = useState(false);
 
     const [practiceStats, setPracticeStats] = useState({
@@ -79,7 +83,7 @@ const PracticePage = () => {
         totalCompleted: 247
     });
 
-    // ОНОВЛЕНО: Визначення основних та додаткових вправ (додано нову вправу)
+    // ОНОВЛЕНО: Визначення основних та додаткових вправ
     const coreExercises = ['multiple-choice', 'sentence-completion', 'listen-and-fill', 'listen-and-choose'];
     const advancedExercises = ['dialog', 'reading-comprehension'];
     const allExerciseTypes = [...coreExercises, ...advancedExercises];
@@ -126,13 +130,74 @@ const PracticePage = () => {
 
         setPracticeCards(filteredCards);
 
-        if (filteredCards.length > 0) {
-            const readingComprehensionUsed = filteredCards.filter(card => card.isReadingComprehensionExercise).length;
-            const readingComprehensionAvailable = filteredCards.filter(card => !card.isReadingComprehensionExercise).length;
-
-            console.log(`📊 Practice cards updated: total=${filteredCards.length}, RC used=${readingComprehensionUsed}, RC available=${readingComprehensionAvailable}`);
-        }
+        // ДОДАНО: Генеруємо список всіх можливих вправ для категорії
+        generateCategoryExercisesList(filteredCards);
     }, [flashcards, selectedCategory]);
+
+    // ДОДАНО: Функція для генерації списку всіх можливих вправ категорії
+    const generateCategoryExercisesList = useCallback((cards) => {
+        const exercisesList = [];
+        let exId = 1;
+
+        // Спочатку додаємо learning картки
+        const learningCards = cards.filter(card => card.status === 'learning');
+        const reviewCards = cards.filter(card => card.status === 'review');
+
+        // Генеруємо вправи для learning карток (пріоритет)
+        learningCards.forEach(flashcard => {
+            coreExercises.forEach(exerciseType => {
+                // Перевіряємо чи може картка використовуватися у цій вправі
+                if (canCardUseExercise(flashcard, exerciseType)) {
+                    exercisesList.push({
+                        exId: exId++,
+                        flashcard,
+                        exerciseType,
+                        priority: 'learning' // Пріоритет для learning карток
+                    });
+                }
+            });
+        });
+
+        // Додаємо review картки (другий пріоритет)
+        reviewCards.forEach(flashcard => {
+            coreExercises.forEach(exerciseType => {
+                exercisesList.push({
+                    exId: exId++,
+                    flashcard,
+                    exerciseType,
+                    priority: 'review' // Нижчий пріоритет
+                });
+            });
+        });
+
+        console.log(`📋 Generated exercises list: ${exercisesList.length} exercises for ${cards.length} cards`);
+        console.log(`   Learning exercises: ${exercisesList.filter(ex => ex.priority === 'learning').length}`);
+        console.log(`   Review exercises: ${exercisesList.filter(ex => ex.priority === 'review').length}`);
+
+        setCategoryExercisesList(exercisesList);
+    }, [coreExercises]);
+
+    // ДОДАНО: Функція перевірки чи може картка використовуватися у вправі
+    const canCardUseExercise = useCallback((flashcard, exerciseType) => {
+        // Для review карток - можна використовувати всі вправи
+        if (flashcard.status === 'review') {
+            return true;
+        }
+
+        // Для learning карток - перевіряємо чи не пройшла вже цю вправу
+        switch (exerciseType) {
+            case 'sentence-completion':
+                return !flashcard.isSentenceCompletionExercise;
+            case 'multiple-choice':
+                return !flashcard.isMultipleChoiceExercise;
+            case 'listen-and-fill':
+                return !flashcard.isListenAndFillExercise;
+            case 'listen-and-choose':
+                return !flashcard.isListenAndChooseExercise;
+            default:
+                return true;
+        }
+    }, []);
 
     useEffect(() => {
         if (!currentExercise) {
@@ -170,36 +235,58 @@ const PracticePage = () => {
         }
     }, []);
 
-    // Функція для генерації фіксованої послідовності типів вправ
-    const generateExerciseTypeSequence = useCallback((length = 10, exerciseMode = 'core') => {
-        let exerciseTypes;
+    // ОНОВЛЕНО: Функція для швидкого вибору вправ із заготовленого списку
+    const selectExercisesFromList = useCallback((requestedCount, exerciseMode = 'core') => {
+        if (categoryExercisesList.length === 0) {
+            console.warn("No exercises available in category list");
+            return [];
+        }
 
-        if (exerciseMode === 'core') {
-            exerciseTypes = coreExercises;
-        } else if (exerciseMode === 'mixed') {
-            exerciseTypes = allExerciseTypes;
+        console.log(`🎯 Selecting ${requestedCount} exercises from ${categoryExercisesList.length} available exercises`);
+
+        // Розділяємо на learning та review вправи
+        const learningExercises = categoryExercisesList.filter(ex => ex.priority === 'learning');
+        const reviewExercises = categoryExercisesList.filter(ex => ex.priority === 'review');
+
+        console.log(`   Learning exercises available: ${learningExercises.length}`);
+        console.log(`   Review exercises available: ${reviewExercises.length}`);
+
+        let selectedExercises = [];
+
+        // Спочатку намагаємося взяти learning вправи
+        if (learningExercises.length >= requestedCount) {
+            // Якщо learning вправ достатньо - берем тільки їх
+            const shuffledLearning = shuffleArray([...learningExercises]);
+            selectedExercises = shuffledLearning.slice(0, requestedCount);
+            console.log(`   ✅ Selected ${requestedCount} exercises from learning cards only`);
         } else {
-            exerciseTypes = coreExercises;
+            // Якщо learning вправ не вистачає - беремо всі learning + добираємо review
+            const shuffledLearning = shuffleArray([...learningExercises]);
+            const neededFromReview = requestedCount - learningExercises.length;
+
+            if (reviewExercises.length >= neededFromReview) {
+                const shuffledReview = shuffleArray([...reviewExercises]);
+                selectedExercises = [
+                    ...shuffledLearning,
+                    ...shuffledReview.slice(0, neededFromReview)
+                ];
+                console.log(`   ✅ Combined: ${learningExercises.length} learning + ${neededFromReview} review exercises`);
+            } else {
+                // Якщо навіть з review не вистачає - беремо що є
+                const shuffledReview = shuffleArray([...reviewExercises]);
+                selectedExercises = [...shuffledLearning, ...shuffledReview];
+                console.log(`   ⚠️ Not enough exercises: got ${selectedExercises.length} out of ${requestedCount} requested`);
+            }
         }
 
-        const sequence = [];
+        // Фінальне перемішування об'єднаного списку
+        const finalExercises = shuffleArray(selectedExercises);
 
-        // Створюємо збалансовану послідовність без повторів підряд
-        const shuffledTypes = shuffleArray([...exerciseTypes]);
-        let lastType = shuffledTypes[Math.floor(Math.random() * shuffledTypes.length)];
-        sequence.push(lastType);
+        console.log(`🎲 Final selection (${finalExercises.length} exercises):`,
+            finalExercises.map((ex, i) => `${i+1}. ${ex.flashcard.text} (${ex.exerciseType}, ${ex.priority})`));
 
-        for (let i = 1; i < length; i++) {
-            // Перемішуємо доступні типи (крім останнього)
-            const availableTypes = shuffleArray(exerciseTypes.filter(type => type !== lastType));
-            const nextType = availableTypes[0];
-            sequence.push(nextType);
-            lastType = nextType;
-        }
-
-        console.log(`🎲 Generated randomized exercise sequence:`, sequence);
-        return sequence;
-    }, [coreExercises, allExerciseTypes]);
+        return finalExercises;
+    }, [categoryExercisesList]);
 
     const generateOptionCards = useCallback((rightCard, allCards, exerciseType) => {
         if (exerciseType === 'listen-and-fill') {
@@ -217,7 +304,6 @@ const PracticePage = () => {
             return [rightCard, ...otherCards];
         }
 
-        // Перемішуємо інші картки перед вибором неправильних варіантів
         const shuffledOthers = shuffleArray(otherCards);
         const wrongOptions = shuffledOthers.slice(0, minOptions - 1);
 
@@ -225,29 +311,24 @@ const PracticePage = () => {
     }, []);
 
     const getCurrentQuestion = useCallback(async () => {
-        if (!currentExercise || currentQuestionIndex >= sessionCards.length) {
+        if (!currentExercise || currentQuestionIndex >= currentSessionExercises.length) {
             return null;
         }
 
-        const rightCard = sessionCards[currentQuestionIndex];
-        if (!rightCard) {
-            console.error("No right card found for current question index");
+        const currentExerciseData = currentSessionExercises[currentQuestionIndex];
+        if (!currentExerciseData) {
+            console.error("No exercise data found for current question index");
             return null;
         }
 
-        let currentExerciseType;
-        if (currentExercise.exerciseTypes) {
-            currentExerciseType = currentExercise.exerciseTypes[currentQuestionIndex] || 'multiple-choice';
-        } else {
-            currentExerciseType = currentExercise.type;
-        }
+        const rightCard = currentExerciseData.flashcard;
+        const currentExerciseType = currentExerciseData.exerciseType;
 
         let optionCards;
 
         if (currentExerciseType === 'reading-comprehension' || currentExerciseType === 'dialog') {
             optionCards = practiceCards;
             console.log(`${currentExerciseType} question ${currentQuestionIndex + 1} prepared with word: ${rightCard.text}`);
-            console.log(`📖 Current sessionUsedWordIds: [${sessionUsedWordIds.join(', ')}]`);
         } else {
             optionCards = generateOptionCards(rightCard, practiceCards, currentExerciseType);
         }
@@ -256,12 +337,12 @@ const PracticePage = () => {
             rightOptionCard: rightCard,
             optionCards: optionCards,
             questionNumber: currentQuestionIndex + 1,
-            totalQuestions: sessionCards.length,
+            totalQuestions: currentSessionExercises.length,
             exerciseType: currentExerciseType
         };
-    }, [currentExercise, currentQuestionIndex, sessionCards, generateOptionCards, practiceCards, sessionUsedWordIds]);
+    }, [currentExercise, currentQuestionIndex, currentSessionExercises, generateOptionCards, practiceCards]);
 
-    // ВИПРАВЛЕНО: Ініціалізація сесій з правильною очисткою sessionUsedWordIds
+    // ОНОВЛЕНО: Швидка ініціалізація сеансів використовуючи заготовлений список
     const initializeExerciseSession = useCallback(async (exerciseType, maxQuestions = 10) => {
         if (isProcessing) {
             console.log("Request already in progress, ignoring new request");
@@ -276,9 +357,9 @@ const PracticePage = () => {
         safeSetState(setIsProcessing, true);
 
         try {
-            console.log(`🚀 Initializing ${exerciseType} session`);
+            console.log(`🚀 Fast initializing ${exerciseType} session with optimized approach`);
 
-            // ДОДАНО: Очищаємо sessionUsedWordIds при початку нової сесії
+            // Очищаємо sessionUsedWordIds при початку нової сесії
             safeSetState(setSessionUsedWordIds, []);
 
             if (requestToken.cancelled) {
@@ -286,216 +367,39 @@ const PracticePage = () => {
                 return null;
             }
 
-            // Reading comprehension з рандомізацією та правильним excludeIds
-            if (exerciseType === 'reading-comprehension') {
-                console.log(`📖 Starting reading-comprehension session with 3 questions`);
-
-                const minCardsRequired = 3;
-
-                if (practiceCards.length < minCardsRequired) {
-                    if (componentMountedRef.current && !requestToken.cancelled) {
-                        alert(`Для цієї вправи потрібно мінімум ${minCardsRequired} карток. Зараз доступно: ${practiceCards.length}`);
-                    }
-                    return null;
-                }
-
-                // ВИПРАВЛЕНО: Не передаємо excludeIds при ініціалізації сесії
-                console.log(`📖 Reading comprehension session initialization - starting fresh`);
-
-                try {
-                    const wordsData = await getWordsForExercise(
-                        'reading-comprehension',
-                        3,
-                        selectedCategory === 'all' ? null : selectedCategory,
-                        [] // Порожній масив при ініціалізації
-                    );
-
-                    if (requestToken.cancelled || !componentMountedRef.current) {
-                        console.log("Request was cancelled during reading comprehension setup");
-                        return null;
-                    }
-
-                    if (wordsData.words.length < 3) {
-                        if (componentMountedRef.current && !requestToken.cancelled) {
-                            alert(`Недостатньо слів для reading comprehension. Потрібно мінімум 3, доступно: ${wordsData.words.length}`);
-                        }
-                        return null;
-                    }
-
-                    // Додаткове перемішування слів з backend на frontend
-                    const selectedCards = shuffleArray([...wordsData.words]);
-
-                    if (componentMountedRef.current && !requestToken.cancelled) {
-                        safeSetState(setSessionCards, selectedCards);
-                        safeSetState(setCurrentQuestionIndex, 0);
-                        safeSetState(setSessionStats, { correct: 0, total: 0 });
-                        safeSetState(setSessionProgress, []);
-                        safeSetState(setShowExerciseResult, false);
-                        safeSetState(setExerciseResults, null);
-                        safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
-
-                        console.log(`📖 Reading comprehension session initialized with 3 questions for words (shuffled):`,
-                            selectedCards.map(c => c.text));
-
-                        if (wordsData.wasRotationApplied) {
-                            console.log(`🔄 Rotation was applied during session initialization`);
-
-                            if (wordsData.allCategoryWords && wordsData.allCategoryWords.length > 0) {
-                                console.log(`🔄 Updating ${wordsData.allCategoryWords.length} flashcards after rotation`);
-
-                                // ДОДАНО: Оновлюємо flashcards після ротації
-                                setTimeout(() => {
-                                    getFlashcards(selectedCategory === 'all' ? null : selectedCategory);
-                                }, 100);
-                            }
-                        }
-
-                        return {
-                            type: exerciseType,
-                            cards: selectedCards,
-                            mode: 'advanced',
-                            wasRotationApplied: wordsData.wasRotationApplied,
-                            allCategoryWords: wordsData.allCategoryWords
-                        };
-                    }
-                } catch (error) {
-                    console.error("Error getting words for reading comprehension:", error);
-                    if (componentMountedRef.current && !requestToken.cancelled) {
-                        alert("Помилка підготовки reading comprehension");
-                    }
-                    return null;
-                }
+            // СПЕЦІАЛЬНА ЛОГІКА: Advanced вправи використовують стару логіку
+            if (advancedExercises.includes(exerciseType)) {
+                return await initializeAdvancedExercise(exerciseType, maxQuestions, requestToken);
             }
 
-            // Dialog з рандомізацією
-            if (exerciseType === 'dialog') {
-                console.log(`💬 Starting dialog session with 3 questions`);
-
-                const minCardsRequired = 3;
-
-                if (practiceCards.length < minCardsRequired) {
-                    if (componentMountedRef.current && !requestToken.cancelled) {
-                        alert(`Для цієї вправи потрібно мінімум ${minCardsRequired} карток. Зараз доступно: ${practiceCards.length}`);
-                    }
-                    return null;
-                }
-
-                const sessionUsedWordIds = sessionProgress
-                    .filter(progress => progress.exerciseType === 'dialog')
-                    .map(progress => progress.flashcardId);
-
-                console.log(`💬 Excluding ${sessionUsedWordIds.length} words already used in session:`, sessionUsedWordIds);
-
-                try {
-                    const wordsData = await getWordsForExercise(
-                        'dialog',
-                        3,
-                        selectedCategory === 'all' ? null : selectedCategory,
-                        sessionUsedWordIds
-                    );
-
-                    if (requestToken.cancelled || !componentMountedRef.current) {
-                        console.log("Request was cancelled during dialog setup");
-                        return null;
-                    }
-
-                    if (wordsData.words.length < 3) {
-                        if (componentMountedRef.current && !requestToken.cancelled) {
-                            alert(`Недостатньо слів для діалогу. Потрібно мінімум 3, доступно: ${wordsData.words.length}`);
-                        }
-                        return null;
-                    }
-
-                    // Додаткове перемішування слів з backend на frontend
-                    const selectedCards = shuffleArray([...wordsData.words]);
-
-                    if (componentMountedRef.current && !requestToken.cancelled) {
-                        safeSetState(setSessionCards, selectedCards);
-                        safeSetState(setCurrentQuestionIndex, 0);
-                        safeSetState(setSessionStats, { correct: 0, total: 0 });
-                        safeSetState(setSessionProgress, []);
-                        safeSetState(setShowExerciseResult, false);
-                        safeSetState(setExerciseResults, null);
-                        safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
-
-                        console.log(`💬 Dialog session initialized with 3 questions for words (shuffled):`,
-                            selectedCards.map(c => c.text));
-
-                        if (sessionUsedWordIds.length > 0) {
-                            console.log(`🚫 Excluded ${sessionUsedWordIds.length} words from previous questions in session`);
-                        }
-
-                        return {
-                            type: exerciseType,
-                            cards: selectedCards,
-                            mode: 'advanced'
-                        };
-                    }
-                } catch (error) {
-                    console.error("Error getting words for dialog:", error);
-                    if (componentMountedRef.current && !requestToken.cancelled) {
-                        alert("Помилка підготовки діалогу");
-                    }
-                    return null;
-                }
-            }
-
-            // ОНОВЛЕНО: Швидкий старт з фіксованою послідовністю (включаючи нову вправу)
-            if (exerciseType === 'quick-warmup' || exerciseType === 'intensive-mode' || exerciseType === 'knowledge-marathon') {
+            // НОВА ЛОГІКА: Швидкий старт для основних вправ
+            if (['quick-warmup', 'intensive-mode', 'knowledge-marathon', 'mixed-practice'].includes(exerciseType)) {
                 const cardCounts = {
                     'quick-warmup': 10,
                     'intensive-mode': 20,
-                    'knowledge-marathon': 30
+                    'knowledge-marathon': 30,
+                    'mixed-practice': 15
                 };
 
-                const requiredCards = cardCounts[exerciseType];
-                // Генеруємо фіксовану послідовність один раз
-                const exerciseTypeSequence = generateExerciseTypeSequence(requiredCards, 'core');
+                const requiredCount = cardCounts[exerciseType];
 
-                const sessionWordsData = [];
-                const usedWordIds = [];
-
-                for (let i = 0; i < requiredCards; i++) {
-                    const currentExerciseType = exerciseTypeSequence[i];
-
-                    try {
-                        const wordsData = await getWordsForExercise(
-                            currentExerciseType,
-                            1,
-                            selectedCategory === 'all' ? null : selectedCategory,
-                            usedWordIds
-                        );
-
-                        if (wordsData.words.length > 0) {
-                            const selectedWord = wordsData.words[0];
-                            sessionWordsData.push({
-                                word: selectedWord,
-                                exerciseType: currentExerciseType
-                            });
-
-                            usedWordIds.push(selectedWord._id);
-                        } else {
-                            console.warn(`No available words for ${currentExerciseType} (attempt ${i + 1})`);
-                        }
-                    } catch (error) {
-                        console.warn(`Failed to get word for ${currentExerciseType}:`, error);
-                    }
-
-                    if (requestToken.cancelled || !componentMountedRef.current) {
-                        console.log("Request was cancelled during word fetching");
-                        return null;
-                    }
+                if (categoryExercisesList.length === 0) {
+                    throw new Error(`No exercises available for ${exerciseType}`);
                 }
 
-                if (sessionWordsData.length === 0) {
-                    throw new Error(`No cards available for ${exerciseType}`);
+                console.log(`⚡ Fast loading: ${exerciseType} needs ${requiredCount} exercises from ${categoryExercisesList.length} available`);
+
+                // Швидкий вибір вправ із заготовленого списку
+                const selectedExercises = selectExercisesFromList(requiredCount, 'core');
+
+                if (selectedExercises.length === 0) {
+                    throw new Error(`No exercises selected for ${exerciseType}`);
                 }
 
                 if (componentMountedRef.current && !requestToken.cancelled) {
-                    const words = sessionWordsData.map(item => item.word);
-                    const exerciseTypes = sessionWordsData.map(item => item.exerciseType);
+                    const words = selectedExercises.map(ex => ex.flashcard);
 
-                    // НЕ перемішуємо сеанс, щоб зберегти правильну послідовність типів вправ
+                    safeSetState(setCurrentSessionExercises, selectedExercises);
                     safeSetState(setSessionCards, words);
                     safeSetState(setCurrentQuestionIndex, 0);
                     safeSetState(setSessionStats, { correct: 0, total: 0 });
@@ -504,63 +408,31 @@ const PracticePage = () => {
                     safeSetState(setExerciseResults, null);
                     safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
 
-                    console.log(`🎯 ${exerciseType} session initialized with ${words.length} words in correct sequence:`,
-                        words.map((w, i) => `${w.text} (${exerciseTypes[i]})`));
+                    console.log(`⚡ ${exerciseType} session initialized INSTANTLY with ${selectedExercises.length} exercises`);
 
                     return {
                         type: exerciseType,
                         cards: words,
-                        exerciseTypes: exerciseTypes, // Фіксована послідовність
-                        mode: 'core'
+                        exercises: selectedExercises,
+                        mode: 'core',
+                        loadTime: 'instant'
                     };
                 }
             }
 
-            // Міксована практика з фіксованою послідовністю
-            if (exerciseType === 'mixed-practice') {
-                const exerciseTypeSequence = generateExerciseTypeSequence(15, 'mixed');
+            // Звичайні основні вправи також використовують швидкий підхід
+            if (coreExercises.includes(exerciseType)) {
+                const selectedExercises = selectExercisesFromList(maxQuestions, 'core')
+                    .filter(ex => ex.exerciseType === exerciseType);
 
-                const sessionWordsData = [];
-                const usedWordIds = [];
-
-                for (let i = 0; i < 15; i++) {
-                    const currentExerciseType = exerciseTypeSequence[i];
-
-                    try {
-                        const wordsData = await getWordsForExercise(
-                            currentExerciseType,
-                            1,
-                            selectedCategory === 'all' ? null : selectedCategory,
-                            usedWordIds
-                        );
-
-                        if (wordsData.words.length > 0) {
-                            const selectedWord = wordsData.words[0];
-                            sessionWordsData.push({
-                                word: selectedWord,
-                                exerciseType: currentExerciseType
-                            });
-                            usedWordIds.push(selectedWord._id);
-                        }
-                    } catch (error) {
-                        console.warn(`Failed to get word for ${currentExerciseType}:`, error);
-                    }
-
-                    if (requestToken.cancelled || !componentMountedRef.current) {
-                        console.log("Request was cancelled during mixed practice setup");
-                        return null;
-                    }
-                }
-
-                if (sessionWordsData.length === 0) {
-                    throw new Error("No cards available for mixed practice");
+                if (selectedExercises.length === 0) {
+                    throw new Error(`No ${exerciseType} exercises available`);
                 }
 
                 if (componentMountedRef.current && !requestToken.cancelled) {
-                    const words = sessionWordsData.map(item => item.word);
-                    const exerciseTypes = sessionWordsData.map(item => item.exerciseType);
+                    const words = selectedExercises.map(ex => ex.flashcard);
 
-                    // НЕ перемішуємо сеанс, щоб зберегти правильну послідовність типів вправ
+                    safeSetState(setCurrentSessionExercises, selectedExercises);
                     safeSetState(setSessionCards, words);
                     safeSetState(setCurrentQuestionIndex, 0);
                     safeSetState(setSessionStats, { correct: 0, total: 0 });
@@ -569,71 +441,16 @@ const PracticePage = () => {
                     safeSetState(setExerciseResults, null);
                     safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
 
-                    console.log(`🎯 Mixed practice session initialized with ${words.length} words in correct sequence:`,
-                        words.map((w, i) => `${w.text} (${exerciseTypes[i]})`));
+                    console.log(`⚡ ${exerciseType} session initialized INSTANTLY with ${selectedExercises.length} exercises`);
 
                     return {
                         type: exerciseType,
                         cards: words,
-                        exerciseTypes: exerciseTypes, // Фіксована послідовність
-                        mode: 'mixed'
+                        exercises: selectedExercises,
+                        mode: 'core',
+                        loadTime: 'instant'
                     };
                 }
-            }
-
-            // ОНОВЛЕНО: Звичайні вправи з рандомізацією (включаючи нову вправу)
-            const minCardsRequired = {
-                'multiple-choice': 4,
-                'sentence-completion': 4,
-                'listen-and-fill': 1,
-                'listen-and-choose': 4 // ДОДАНО: нова вправа
-            };
-
-            try {
-                const wordsData = await getWordsForExercise(
-                    exerciseType,
-                    maxQuestions,
-                    selectedCategory === 'all' ? null : selectedCategory
-                );
-
-                if (requestToken.cancelled || !componentMountedRef.current) {
-                    console.log("Request was cancelled during regular exercise setup");
-                    return null;
-                }
-
-                if (wordsData.words.length < minCardsRequired[exerciseType]) {
-                    if (componentMountedRef.current && !requestToken.cancelled) {
-                        alert(`Для цієї вправи потрібно мінімум ${minCardsRequired[exerciseType]} карток.`);
-                    }
-                    return null;
-                }
-
-                if (componentMountedRef.current && !requestToken.cancelled) {
-                    // Додаткове перемішування слів з backend
-                    const shuffledWords = shuffleArray([...wordsData.words]);
-
-                    safeSetState(setSessionCards, shuffledWords);
-                    safeSetState(setCurrentQuestionIndex, 0);
-                    safeSetState(setSessionStats, { correct: 0, total: 0 });
-                    safeSetState(setSessionProgress, []);
-                    safeSetState(setShowExerciseResult, false);
-                    safeSetState(setExerciseResults, null);
-                    safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
-
-                    console.log(`🎲 Regular session initialized with ${shuffledWords.length} unique words (shuffled):`, shuffledWords.map(w => w.text));
-
-                    return {
-                        type: exerciseType,
-                        cards: shuffledWords,
-                        mode: coreExercises.includes(exerciseType) ? 'core' : 'advanced'
-                    };
-                }
-            } catch (error) {
-                console.error("Error getting words for exercise:", error);
-                if (componentMountedRef.current && !requestToken.cancelled) {
-                    alert("Помилка підготовки вправи");
-                }
-                return null;
             }
 
             return null;
@@ -652,7 +469,170 @@ const PracticePage = () => {
                 safeSetState(setIsProcessing, false);
             }
         }
-    }, [isProcessing, cancelPreviousRequest, safeSetState, getWordsForExercise, selectedCategory, generateExerciseTypeSequence, coreExercises, practiceCards, sessionProgress, getFlashcards]);
+    }, [isProcessing, cancelPreviousRequest, safeSetState, categoryExercisesList, selectExercisesFromList, advancedExercises, coreExercises]);
+
+    // ДОДАНО: Окрема функція для advanced вправ (стара логіка)
+    const initializeAdvancedExercise = useCallback(async (exerciseType, maxQuestions, requestToken) => {
+        console.log(`📖 Initializing advanced exercise: ${exerciseType}`);
+
+        // Reading comprehension з рандомізацією та правильним excludeIds
+        if (exerciseType === 'reading-comprehension') {
+            console.log(`📖 Starting reading-comprehension session with 3 questions`);
+
+            const minCardsRequired = 3;
+
+            if (practiceCards.length < minCardsRequired) {
+                if (componentMountedRef.current && !requestToken.cancelled) {
+                    alert(`Для цієї вправи потрібно мінімум ${minCardsRequired} карток. Зараз доступно: ${practiceCards.length}`);
+                }
+                return null;
+            }
+
+            console.log(`📖 Reading comprehension session initialization - starting fresh`);
+
+            try {
+                const wordsData = await getWordsForExercise(
+                    'reading-comprehension',
+                    3,
+                    selectedCategory === 'all' ? null : selectedCategory,
+                    []
+                );
+
+                if (requestToken.cancelled || !componentMountedRef.current) {
+                    console.log("Request was cancelled during reading comprehension setup");
+                    return null;
+                }
+
+                if (wordsData.words.length < 3) {
+                    if (componentMountedRef.current && !requestToken.cancelled) {
+                        alert(`Недостатньо слів для reading comprehension. Потрібно мінімум 3, доступно: ${wordsData.words.length}`);
+                    }
+                    return null;
+                }
+
+                const selectedCards = shuffleArray([...wordsData.words]);
+
+                if (componentMountedRef.current && !requestToken.cancelled) {
+                    safeSetState(setSessionCards, selectedCards);
+                    safeSetState(setCurrentQuestionIndex, 0);
+                    safeSetState(setSessionStats, { correct: 0, total: 0 });
+                    safeSetState(setSessionProgress, []);
+                    safeSetState(setShowExerciseResult, false);
+                    safeSetState(setExerciseResults, null);
+                    safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
+
+                    // Створюємо фейковий список вправ для сумісності
+                    const fakeExercises = selectedCards.map(card => ({
+                        flashcard: card,
+                        exerciseType: 'reading-comprehension'
+                    }));
+                    safeSetState(setCurrentSessionExercises, fakeExercises);
+
+                    console.log(`📖 Reading comprehension session initialized with 3 questions for words (shuffled):`,
+                        selectedCards.map(c => c.text));
+
+                    if (wordsData.wasRotationApplied) {
+                        console.log(`🔄 Rotation was applied during session initialization`);
+
+                        if (wordsData.allCategoryWords && wordsData.allCategoryWords.length > 0) {
+                            setTimeout(() => {
+                                getFlashcards(selectedCategory === 'all' ? null : selectedCategory);
+                            }, 100);
+                        }
+                    }
+
+                    return {
+                        type: exerciseType,
+                        cards: selectedCards,
+                        mode: 'advanced',
+                        wasRotationApplied: wordsData.wasRotationApplied,
+                        allCategoryWords: wordsData.allCategoryWords,
+                        loadTime: 'network'
+                    };
+                }
+            } catch (error) {
+                console.error("Error getting words for reading comprehension:", error);
+                if (componentMountedRef.current && !requestToken.cancelled) {
+                    alert("Помилка підготовки reading comprehension");
+                }
+                return null;
+            }
+        }
+
+        // Dialog логіка
+        if (exerciseType === 'dialog') {
+            console.log(`💬 Starting dialog session with 3 questions`);
+
+            const minCardsRequired = 3;
+
+            if (practiceCards.length < minCardsRequired) {
+                if (componentMountedRef.current && !requestToken.cancelled) {
+                    alert(`Для цієї вправи потрібно мінімум ${minCardsRequired} карток. Зараз доступно: ${practiceCards.length}`);
+                }
+                return null;
+            }
+
+            const sessionUsedWordIds = sessionProgress
+                .filter(progress => progress.exerciseType === 'dialog')
+                .map(progress => progress.flashcardId);
+
+            try {
+                const wordsData = await getWordsForExercise(
+                    'dialog',
+                    3,
+                    selectedCategory === 'all' ? null : selectedCategory,
+                    sessionUsedWordIds
+                );
+
+                if (requestToken.cancelled || !componentMountedRef.current) {
+                    return null;
+                }
+
+                if (wordsData.words.length < 3) {
+                    if (componentMountedRef.current && !requestToken.cancelled) {
+                        alert(`Недостатньо слів для діалогу. Потрібно мінімум 3, доступно: ${wordsData.words.length}`);
+                    }
+                    return null;
+                }
+
+                const selectedCards = shuffleArray([...wordsData.words]);
+
+                if (componentMountedRef.current && !requestToken.cancelled) {
+                    safeSetState(setSessionCards, selectedCards);
+                    safeSetState(setCurrentQuestionIndex, 0);
+                    safeSetState(setSessionStats, { correct: 0, total: 0 });
+                    safeSetState(setSessionProgress, []);
+                    safeSetState(setShowExerciseResult, false);
+                    safeSetState(setExerciseResults, null);
+                    safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
+
+                    const fakeExercises = selectedCards.map(card => ({
+                        flashcard: card,
+                        exerciseType: 'dialog'
+                    }));
+                    safeSetState(setCurrentSessionExercises, fakeExercises);
+
+                    console.log(`💬 Dialog session initialized with 3 questions for words (shuffled):`,
+                        selectedCards.map(c => c.text));
+
+                    return {
+                        type: exerciseType,
+                        cards: selectedCards,
+                        mode: 'advanced',
+                        loadTime: 'network'
+                    };
+                }
+            } catch (error) {
+                console.error("Error getting words for dialog:", error);
+                if (componentMountedRef.current && !requestToken.cancelled) {
+                    alert("Помилка підготовки діалогу");
+                }
+                return null;
+            }
+        }
+
+        return null;
+    }, [getWordsForExercise, selectedCategory, practiceCards, sessionProgress, safeSetState, getFlashcards]);
 
     const handleExerciseClick = useCallback(async (exerciseType) => {
         if (isProcessing || isRestarting) {
@@ -660,10 +640,11 @@ const PracticePage = () => {
             return;
         }
 
-        console.log(`🎲 Starting ${exerciseType} exercise with randomization`);
+        console.log(`⚡ Starting ${exerciseType} exercise with OPTIMIZED loading`);
         const session = await initializeExerciseSession(exerciseType);
 
         if (session && componentMountedRef.current) {
+            console.log(`⚡ Session loaded in: ${session.loadTime || 'unknown'} mode`);
             safeSetState(setCurrentExercise, session);
         }
     }, [isProcessing, isRestarting, initializeExerciseSession, safeSetState]);
@@ -673,7 +654,7 @@ const PracticePage = () => {
         safeSetState(setCurrentSessionProgress, updatedProgress);
     }, [safeSetState]);
 
-    // ВИПРАВЛЕНО: Обробка результатів з правильним оновленням sessionUsedWordIds
+    // Обробка результатів
     const handleQuestionResult = useCallback(async (result) => {
         if (isProcessing || !componentMountedRef.current) {
             console.log("Question result ignored: processing or unmounted");
@@ -694,7 +675,8 @@ const PracticePage = () => {
                     safeSetState(setCurrentQuestion, null);
                     safeSetState(setQuestionLoading, false);
                     safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
-                    safeSetState(setSessionUsedWordIds, []); // ДОДАНО: очищаємо при виході
+                    safeSetState(setSessionUsedWordIds, []);
+                    safeSetState(setCurrentSessionExercises, []);
                 }
                 return;
             }
@@ -702,9 +684,10 @@ const PracticePage = () => {
             let currentWordProgress = [];
 
             if (result.rightOptionCard) {
+                // ОНОВЛЕНО: Отримуємо тип вправи з поточного списку сеансу
                 let currentExerciseType;
-                if (currentExercise.exerciseTypes) {
-                    currentExerciseType = currentExercise.exerciseTypes[currentQuestionIndex] || 'multiple-choice';
+                if (currentSessionExercises[currentQuestionIndex]) {
+                    currentExerciseType = currentSessionExercises[currentQuestionIndex].exerciseType;
                 } else {
                     currentExerciseType = currentExercise.type;
                 }
@@ -712,8 +695,6 @@ const PracticePage = () => {
                 try {
                     if (currentExerciseType === 'reading-comprehension' && result.usedWordIds && result.allWordsData) {
                         console.log(`📖 Processing reading comprehension result with ${result.usedWordIds.length} words`);
-                        console.log(`📖 Used word IDs:`, result.usedWordIds);
-                        console.log(`📖 All words data:`, result.allWordsData.map(w => w.text));
 
                         const exerciseResult = await handleExerciseResult(
                             result.rightOptionCard._id,
@@ -721,8 +702,6 @@ const PracticePage = () => {
                             result.isCorrect,
                             result.usedWordIds
                         );
-
-                        console.log(`📖 Backend response:`, exerciseResult);
 
                         if (exerciseResult.allWords && Array.isArray(exerciseResult.allWords)) {
                             currentWordProgress = exerciseResult.allWords.map(backendWord => ({
@@ -733,9 +712,6 @@ const PracticePage = () => {
                                 progressInfo: backendWord.progressInfo || { status: 'completed', progress: 100 },
                                 isInCurrentSession: true
                             }));
-
-                            console.log(`📖 Created progress for ${currentWordProgress.length} words from backend:`,
-                                currentWordProgress.map(w => w.text));
                         } else {
                             currentWordProgress = result.allWordsData.map(wordData => ({
                                 flashcardId: wordData._id,
@@ -745,17 +721,13 @@ const PracticePage = () => {
                                 progressInfo: { status: 'completed', progress: 100 },
                                 isInCurrentSession: true
                             }));
-
-                            console.log(`📖 Used fallback progress for ${currentWordProgress.length} words`);
                         }
 
-                        // ДОДАНО: Оновлюємо sessionUsedWordIds якщо є нові ID
                         if (result.newSessionUsedWordIds && Array.isArray(result.newSessionUsedWordIds)) {
                             console.log(`📖 Updating sessionUsedWordIds: ${sessionUsedWordIds.length} -> ${result.newSessionUsedWordIds.length}`);
                             safeSetState(setSessionUsedWordIds, result.newSessionUsedWordIds);
                         }
 
-                        // ДОДАНО: Оновлюємо flashcards щоб синхронізувати зміни
                         setTimeout(() => {
                             getFlashcards(selectedCategory === 'all' ? null : selectedCategory);
                         }, 100);
@@ -788,8 +760,6 @@ const PracticePage = () => {
                             progressInfo: { status: 'completed', progress: 100 },
                             isInCurrentSession: true
                         }));
-
-                        console.log(`📖 Used error fallback for ${currentWordProgress.length} words`);
                     } else {
                         currentWordProgress = [{
                             flashcardId: result.rightOptionCard._id,
@@ -819,13 +789,13 @@ const PracticePage = () => {
 
                 safeSetState(setSessionStats, newStats);
 
-                console.log(`📊 Current question: ${currentQuestionIndex + 1}, Total questions: ${sessionCards.length}`);
+                console.log(`📊 Current question: ${currentQuestionIndex + 1}, Total questions: ${currentSessionExercises.length}`);
 
-                if (currentQuestionIndex < sessionCards.length - 1) {
+                if (currentQuestionIndex < currentSessionExercises.length - 1) {
                     console.log(`📖 Moving to next question: ${currentQuestionIndex + 2}`);
                     safeSetState(setCurrentQuestionIndex, prev => prev + 1);
                 } else {
-                    console.log(`📖 Session completed after ${sessionCards.length} questions`);
+                    console.log(`📖 Session completed after ${currentSessionExercises.length} questions`);
                     const updatedProgress = currentWordProgress.length > 0
                         ? [...sessionProgress, ...currentWordProgress]
                         : sessionProgress;
@@ -840,7 +810,7 @@ const PracticePage = () => {
                 safeSetState(setIsProcessing, false);
             }
         }
-    }, [isProcessing, safeSetState, handleExerciseResult, sessionStats, currentQuestionIndex, sessionCards, currentExercise, sessionProgress, sessionUsedWordIds, getFlashcards, selectedCategory]);
+    }, [isProcessing, safeSetState, handleExerciseResult, sessionStats, currentQuestionIndex, currentSessionExercises, currentExercise, sessionProgress, sessionUsedWordIds, getFlashcards, selectedCategory]);
 
     const handleSessionComplete = useCallback((finalStats, actualProgress = null) => {
         if (!componentMountedRef.current) return;
@@ -891,7 +861,8 @@ const PracticePage = () => {
         safeSetState(setCurrentExercise, null);
         safeSetState(setCurrentQuestion, null);
         safeSetState(setQuestionLoading, false);
-        safeSetState(setSessionUsedWordIds, []); // ДОДАНО: очищаємо при завершенні сесії
+        safeSetState(setSessionUsedWordIds, []);
+        safeSetState(setCurrentSessionExercises, []);
     }, [currentExercise, sessionProgress, safeSetState, getLearningStats, selectedCategory, getFlashcards, practiceCards]);
 
     // Логіка restart з лоадером
@@ -907,18 +878,20 @@ const PracticePage = () => {
             safeSetState(setIsRestarting, true);
 
             try {
-                console.log(`🔄🎲 Restarting ${currentType} with new randomization`);
+                console.log(`🔄⚡ Restarting ${currentType} with OPTIMIZED approach`);
 
-                // ДОДАНО: Скидаємо стани прогресу включно з sessionUsedWordIds
+                // Скидаємо стани прогресу
                 safeSetState(setSessionProgress, []);
                 safeSetState(setCurrentQuestion, null);
                 safeSetState(setQuestionLoading, false);
                 safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
-                safeSetState(setSessionUsedWordIds, []); // ДОДАНО
+                safeSetState(setSessionUsedWordIds, []);
+                safeSetState(setCurrentSessionExercises, []);
 
                 const session = await initializeExerciseSession(currentType);
 
                 if (session && componentMountedRef.current) {
+                    console.log(`⚡ Restart completed using: ${session.loadTime || 'unknown'} mode`);
                     safeSetState(setCurrentExercise, session);
                     safeSetState(setShowExerciseResult, false);
                     safeSetState(setExerciseResults, null);
@@ -955,7 +928,8 @@ const PracticePage = () => {
             safeSetState(setQuestionLoading, false);
             safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
             safeSetState(setIsRestarting, false);
-            safeSetState(setSessionUsedWordIds, []); // ДОДАНО: очищаємо при виході
+            safeSetState(setSessionUsedWordIds, []);
+            safeSetState(setCurrentSessionExercises, []);
         }
 
         setTimeout(() => {
@@ -969,7 +943,7 @@ const PracticePage = () => {
         // Placeholder for card update
     }, []);
 
-    // ДОДАНО: Обробник для кнопки міграції карток
+    // Обробник для кнопки міграції карток
     const handleMigrateFlashcards = useCallback(async () => {
         if (isMigrating || isProcessing || isRestarting) {
             console.log("Migration ignored: already processing");
@@ -984,7 +958,6 @@ const PracticePage = () => {
 
             console.log("✅ Migration completed:", result);
 
-            // Оновлюємо статистику після міграції
             setTimeout(() => {
                 getLearningStats();
             }, 1000);
@@ -996,7 +969,7 @@ const PracticePage = () => {
         }
     }, [isMigrating, isProcessing, isRestarting, migrateFlashcardsToLatestVersion, getLearningStats]);
 
-    // ОНОВЛЕНО: Exercise types data з новою вправою
+    // Exercise types data з новою вправою
     const coreExercisesData = [
         {
             id: 'multiple-choice',
@@ -1040,7 +1013,6 @@ const PracticePage = () => {
             category: 'core',
             features: ['Розвиток слуху', 'Правопис', 'Вимова']
         },
-        // ДОДАНО: Нова основна вправа
         {
             id: 'listen-and-choose',
             title: 'Прослухати та обрати',
@@ -1096,7 +1068,7 @@ const PracticePage = () => {
             icon: Zap,
             cards: 10,
             time: '5-7 хв',
-            color: 'bg-gradient-to-t from-emerald-500 to-teal-500', // ЗМІНЕНО: замість жовто-оранжевого
+            color: 'bg-gradient-to-t from-emerald-500 to-teal-500',
             exerciseType: 'quick-warmup'
         },
         {
@@ -1123,14 +1095,14 @@ const PracticePage = () => {
     if (showExerciseResult && exerciseResults) {
         const getGradientClass = (exerciseType) => {
             const gradients = {
-                'quick-warmup': 'from-emerald-500 to-teal-500', // ЗМІНЕНО: замість жовто-оранжевого
+                'quick-warmup': 'from-emerald-500 to-teal-500',
                 'intensive-mode': 'from-purple-600 to-pink-600',
                 'knowledge-marathon': 'from-indigo-600 to-purple-600',
                 'mixed-practice': 'from-blue-500 to-purple-600',
                 'multiple-choice': 'from-purple-600 to-pink-600',
                 'sentence-completion': 'from-emerald-500 to-teal-500',
                 'listen-and-fill': 'from-blue-400 to-cyan-500',
-                'listen-and-choose': 'from-indigo-400 to-purple-400', // ДОДАНО: градієнт для нової вправи
+                'listen-and-choose': 'from-indigo-400 to-purple-400',
                 'dialog': 'from-indigo-600 to-purple-600',
                 'reading-comprehension': 'from-emerald-500 to-teal-500'
             };
@@ -1165,7 +1137,7 @@ const PracticePage = () => {
                                 {questionLoading ? 'Підготовка...' : 'Підготовка...'}
                             </h2>
                             <p className="text-gray-600 mb-6">
-                                {questionLoading ? 'Ініціалізація вправи' : 'Ініціалізація вправи...'}
+                                {currentExercise.loadTime === 'instant' ? 'Миттєво завантажено з кешу!' : 'Ініціалізація вправи'}
                             </p>
                         </div>
                     </div>
@@ -1222,7 +1194,6 @@ const PracticePage = () => {
                             onProgressUpdate={handleProgressUpdate}
                         />
                     );
-                // ДОДАНО: Рендер нової вправи
                 case 'listen-and-choose':
                     return (
                         <ListenAndChooseExercise
@@ -1260,7 +1231,7 @@ const PracticePage = () => {
                             onRestart={handleRestartExercise}
                             isProcessing={isProcessing}
                             onProgressUpdate={handleProgressUpdate}
-                            sessionUsedWordIds={sessionUsedWordIds} // ДОДАНО: передаємо excludeIds
+                            sessionUsedWordIds={sessionUsedWordIds}
                         />
                     );
                 default:
@@ -1295,13 +1266,23 @@ const PracticePage = () => {
                     </div>
                     <div>
                         <h1 className="text-xl font-bold text-gray-900">
-                            Практика
+                            Практика ⚡
                         </h1>
                         <p className="text-gray-600">
-                            Покращуйте свої навички через інтерактивні вправи
+                            Покращуйте свої навички через миттєві інтерактивні вправи
                         </p>
                     </div>
                 </div>
+
+                {/* ДОДАНО: Індикатор оптимізації */}
+                {categoryExercisesList.length > 0 && (
+                    <div className="absolute top-4 right-4">
+                        <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
+                            <Zap className="w-4 h-4 mr-1" />
+                            {categoryExercisesList.length} готових вправ
+                        </div>
+                    </div>
+                )}
             </div>
 
             <div className="p-8">
@@ -1408,12 +1389,12 @@ const PracticePage = () => {
                         <div>
                             <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                                 <Sparkles className="w-5 h-5 mr-2 text-emerald-500" />
-                                Швидкий старт
+                                Швидкий старт ⚡ (Миттєве завантаження)
                             </h3>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {quickPractice.map((practice, index) => {
-                                    const isAvailable = practiceCards.length > 0;
+                                    const isAvailable = categoryExercisesList.length > 0;
 
                                     return (
                                         <div
@@ -1434,6 +1415,12 @@ const PracticePage = () => {
                                             }`}>
                                                 <div className="flex items-center justify-between mb-4">
                                                     <practice.icon className="w-8 h-8" />
+                                                    {isAvailable && !isProcessing && !isRestarting && (
+                                                        <div className="flex items-center">
+                                                            <Zap className="w-4 h-4 mr-1" />
+                                                            <span className="text-xs">Миттєво</span>
+                                                        </div>
+                                                    )}
                                                     {isAvailable && !isProcessing && !isRestarting && (
                                                         <ArrowRight className="w-5 h-5 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
                                                     )}
@@ -1462,9 +1449,11 @@ const PracticePage = () => {
                             <div className="bg-gradient-to-t from-blue-500 to-purple-600 rounded-2xl p-8 text-white shadow-md">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h4 className="text-2xl font-bold mb-2">Міксована практика</h4>
+                                        <h4 className="text-2xl font-bold mb-2">
+                                            Міксована практика ⚡
+                                        </h4>
                                         <p className="text-blue-100 mb-4">
-                                            Комбінація різних типів вправ для максимального ефекту
+                                            Комбінація різних типів вправ для максимального ефекту (миттєве завантаження)
                                         </p>
                                         <div className="flex items-center space-x-4 text-sm">
                                             <div className="flex items-center">
@@ -1473,19 +1462,23 @@ const PracticePage = () => {
                                             </div>
                                             <div className="flex items-center">
                                                 <BookOpen className="w-4 h-4 mr-1" />
-                                                {Math.min(15, practiceCards.length)} карток
+                                                15 карток
                                             </div>
                                             <div className="flex items-center">
                                                 <TrendingUp className="w-4 h-4 mr-1" />
                                                 Всі типи вправ
                                             </div>
+                                            <div className="flex items-center">
+                                                <Zap className="w-4 h-4 mr-1" />
+                                                Миттєво
+                                            </div>
                                         </div>
                                     </div>
                                     <button
                                         onClick={() => !isProcessing && !isRestarting && handleExerciseClick('mixed-practice')}
-                                        disabled={practiceCards.length < 3 || isProcessing || isRestarting}
+                                        disabled={categoryExercisesList.length < 3 || isProcessing || isRestarting}
                                         className={`bg-white/10 hover:bg-white/20 disabled:bg-white/10 text-white px-14 py-4 rounded-xl font-semibold transition-all duration-200 flex items-center ${
-                                            isProcessing || isRestarting || practiceCards.length < 3
+                                            isProcessing || isRestarting || categoryExercisesList.length < 3
                                                 ? 'disabled:cursor-not-allowed'
                                                 : 'cursor-pointer'
                                         }`}
@@ -1498,15 +1491,15 @@ const PracticePage = () => {
                         </div>
                     </div>
 
-                    {/* ОНОВЛЕНО: СЕКЦІЯ 2: Основні вправи (тепер з 4 вправами) */}
+                    {/* СЕКЦІЯ 2: Основні вправи */}
                     <div className="mb-12">
                         <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                             <Target className="w-5 h-5 mr-2 text-blue-500" />
-                            Основні вправи
+                            Основні вправи ⚡ (Миттєве завантаження)
                         </h3>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-8"> {/* ЗМІНЕНО: сітка 2x2 замість 3 колонок */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-8">
                             {coreExercisesData.map((exercise) => {
-                                const isAvailable = practiceCards.length >= exercise.minCards;
+                                const isAvailable = categoryExercisesList.length >= exercise.minCards;
                                 const Icon = exercise.icon;
 
                                 return (
@@ -1521,6 +1514,14 @@ const PracticePage = () => {
                                     >
                                         <div>
                                             <div className={`absolute inset-0 bg-gradient-to-br ${exercise.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl`} />
+
+                                            {/* ДОДАНО: Індикатор миттєвого завантаження */}
+                                            <div className="absolute top-4 right-4">
+                                                <div className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                                                    <Zap className="w-3 h-3 mr-1" />
+                                                    Миттєво
+                                                </div>
+                                            </div>
 
                                             <div className={`w-16 h-16 bg-gradient-to-br ${exercise.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                                                 <Icon className="w-8 h-8 text-white" />
@@ -1558,7 +1559,7 @@ const PracticePage = () => {
                                             {isAvailable ? (
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-sm text-gray-500">
-                                                        {practiceCards.length} карток доступно
+                                                        {categoryExercisesList.filter(ex => ex.exerciseType === exercise.id).length} вправ готово
                                                     </span>
                                                     <div className={`px-4 py-2 bg-gradient-to-r ${exercise.color} text-white rounded-lg text-sm font-medium`}>
                                                         Почати
@@ -1580,7 +1581,7 @@ const PracticePage = () => {
                     <div className="mb-12">
                         <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center">
                             <Layers className="w-5 h-5 mr-2 text-purple-500" />
-                            Додаткові вправи
+                            Додаткові вправи (Мережеве завантаження)
                         </h3>
 
                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-8">
@@ -1600,6 +1601,14 @@ const PracticePage = () => {
                                     >
                                         <div>
                                             <div className={`absolute inset-0 bg-gradient-to-br ${exercise.color} opacity-0 group-hover:opacity-10 transition-opacity duration-300 rounded-2xl`} />
+
+                                            {/* ДОДАНО: Індикатор мережевого завантаження */}
+                                            <div className="absolute top-4 right-4">
+                                                <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded-full text-xs font-medium flex items-center">
+                                                    <Globe className="w-3 h-3 mr-1" />
+                                                    Мережа
+                                                </div>
+                                            </div>
 
                                             <div className={`w-16 h-16 bg-gradient-to-br ${exercise.color} rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300`}>
                                                 <Icon className="w-8 h-8 text-white" />
@@ -1655,7 +1664,7 @@ const PracticePage = () => {
                         </div>
                     </div>
 
-                    {/* ДОДАНО: Кнопка оновлення до останньої версії */}
+                    {/* Кнопка оновлення до останньої версії */}
                     <div className="border-t border-gray-200 pt-8">
                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
                             <div className="flex items-center justify-between">

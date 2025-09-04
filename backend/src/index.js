@@ -1,13 +1,13 @@
-// backend/src/index.js - ОНОВЛЕНО З ІНФОРМАЦІЄЮ ПРО НОВУ ВПРАВУ
+// backend/src/index.js - ОНОВЛЕНО З ІНФОРМАЦІЄЮ ПРО ОПТИМІЗАЦІЮ ЗАВАНТАЖЕННЯ
 
 import express from "express";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import cors from "cors";
-import helmet from "helmet"; // ДОДАНО: Security headers
-import compression from "compression"; // ДОДАНО: Compression
+import helmet from "helmet";
+import compression from "compression";
 
-// ДОДАНО: Rate limiting middleware
+// Rate limiting middleware
 import {
     generalLimiter,
     openaiLimiter,
@@ -35,7 +35,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 
-// ДОДАНО: Enhanced logging function
+// Enhanced logging function
 const logger = {
     log: (message, data = null) => {
         if (NODE_ENV === 'development') {
@@ -62,7 +62,7 @@ logger.log("- OPENAI_API_KEY:", process.env.OPENAI_API_KEY ?
     `System key set (starts with: ${process.env.OPENAI_API_KEY.substring(0, 10)}...)` : "Not set");
 logger.log("- JWT_SECRET:", process.env.JWT_SECRET ? "Set" : "Not set");
 
-// ДОДАНО: Security middleware (should be first)
+// Security middleware (should be first)
 app.use(helmet({
     contentSecurityPolicy: {
         directives: {
@@ -73,10 +73,10 @@ app.use(helmet({
             connectSrc: ["'self'", "https://api.openai.com"],
         },
     },
-    crossOriginEmbedderPolicy: false // Для compatibility з деякими браузерами
+    crossOriginEmbedderPolicy: false
 }));
 
-// ДОДАНО: Compression middleware
+// Compression middleware
 app.use(compression({
     filter: (req, res) => {
         if (req.headers['x-no-compression']) {
@@ -84,16 +84,16 @@ app.use(compression({
         }
         return compression.filter(req, res);
     },
-    threshold: 1024 // Compress responses larger than 1KB
+    threshold: 1024
 }));
 
-// ДОДАНО: Internal service bypass (перед rate limiting)
+// Internal service bypass (перед rate limiting)
 app.use(internalServiceBypass);
 
-// ДОДАНО: Rate limiting logger
+// Rate limiting logger
 app.use(rateLimitLogger);
 
-// ДОДАНО: General rate limiting з slow down
+// General rate limiting з slow down
 app.use(conditionalLimiter(slowDownMiddleware));
 app.use(conditionalLimiter(generalLimiter));
 
@@ -101,7 +101,6 @@ app.use(conditionalLimiter(generalLimiter));
 app.use(express.json({
     limit: '10mb',
     verify: (req, res, buf) => {
-        // ДОДАНО: JSON parsing error handling
         try {
             JSON.parse(buf);
         } catch (error) {
@@ -119,7 +118,7 @@ app.use(express.json({
 
 app.use(cookieParser());
 
-// ОНОВЛЕНО: Enhanced CORS configuration
+// Enhanced CORS configuration
 const corsOptions = {
     origin: (origin, callback) => {
         const allowedOrigins = [
@@ -151,13 +150,12 @@ const corsOptions = {
     credentials: true,
     optionsSuccessStatus: 200,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    // ВИПРАВЛЕНО: Додано потрібні заголовки для TTS та кешування
     allowedHeaders: [
         'Content-Type',
         'Authorization',
         'x-internal-token',
-        'Cache-Control',  // ДОДАНО для TTS запитів
-        'Pragma',         // ДОДАНО для TTS запитів
+        'Cache-Control',
+        'Pragma',
         'X-Requested-With',
         'Accept',
         'Origin'
@@ -166,7 +164,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// ДОДАНО: Request logging middleware (для development)
+// Request logging middleware (для development)
 if (NODE_ENV === 'development') {
     app.use((req, res, next) => {
         const start = Date.now();
@@ -197,37 +195,60 @@ if (NODE_ENV === 'development') {
 
 // Routes з specific rate limiting
 app.use("/api/auth", conditionalLimiter(authLimiter), authRoutes);
-app.use("/api/flashcards", flashcardRoutes); // ПІДТРИМУЄ ВСІ ТИПИ ВПРАВ
+app.use("/api/flashcards", flashcardRoutes); // ПІДТРИМУЄ ВСІ ТИПИ ВПРАВ + ОПТИМІЗАЦІЮ
 app.use("/api/categories", categoryRoutes);
 app.use("/api/tts", conditionalLimiter(ttsLimiter), ttsRoutes);
 app.use("/api/settings", userSettingsRoutes);
 app.use("/api/openai", conditionalLimiter(openaiLimiter), openaiRoutes);
 
-// ОНОВЛЕНО: Enhanced health check endpoint
+// ОНОВЛЕНО: Enhanced health check endpoint з інформацією про оптимізацію
 app.get("/api/health", (req, res) => {
     const healthCheck = {
         status: "OK",
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         environment: NODE_ENV,
-        version: "4.1.0", // ОНОВЛЕНО: версія з новою вправою listen-and-choose
+        version: "5.0.0", // ОНОВЛЕНО: нова версія з оптимізацією завантаження
         features: {
             mongodb: process.env.MONGODB_URI ? "configured" : "not configured",
             system_openai: process.env.OPENAI_API_KEY ? "configured" : "not configured",
             jwt: process.env.JWT_SECRET ? "configured" : "not configured",
             user_settings: "enabled",
             ai_flashcards: "enabled",
-            learning_system: "enabled", // ОНОВЛЕНО: повна система навчання
-            core_exercises: "enabled", // ОНОВЛЕНО: sentence-completion, multiple-choice, listen-and-fill, listen-and-choose
+            learning_system: "enabled", // Повна система навчання
+            core_exercises: "enabled", // sentence-completion, multiple-choice, listen-and-fill, listen-and-choose
             additional_exercises: "enabled", // dialog, reading-comprehension
-            flashcard_migration: "enabled", // ДОДАНО: підтримка міграції карток
+            flashcard_migration: "enabled", // Підтримка міграції карток
             rate_limiting: "enabled",
-            security_headers: "enabled"
+            security_headers: "enabled",
+            // ДОДАНО: Нові функції оптимізації
+            instant_loading: "enabled", // ⚡ Миттєве завантаження для core вправ
+            exercise_caching: "enabled", // 🎯 Кешування списку вправ на frontend
+            smart_prioritization: "enabled", // 🧠 Розумна пріоритизація learning/review карток
+            optimized_randomization: "enabled" // 🎲 Оптимізована рандомізація
         },
         exercise_types: {
-            core: ["sentence-completion", "multiple-choice", "listen-and-fill", "listen-and-choose"], // ОНОВЛЕНО: додано нову вправу
-            additional: ["dialog", "reading-comprehension"],
-            total_supported: 6 // ОНОВЛЕНО: тепер 6 підтримуваних типів
+            core: [
+                "sentence-completion",
+                "multiple-choice",
+                "listen-and-fill",
+                "listen-and-choose"
+            ], // ⚡ Миттєве завантаження
+            additional: [
+                "dialog",
+                "reading-comprehension"
+            ], // 🌐 Мережеве завантаження
+            total_supported: 6
+        },
+        performance: {
+            // ДОДАНО: Інформація про продуктивність
+            instant_exercises: "4 types", // Core вправи завантажуються миттєво
+            network_exercises: "2 types", // Advanced вправи використовують мережу
+            loading_modes: {
+                instant: "⚡ <100ms - core exercises from frontend cache",
+                network: "🌐 ~2-5s - advanced exercises from backend API"
+            },
+            optimization_strategy: "Frontend pre-generation + smart prioritization"
         },
         system: {
             nodeVersion: process.version,
@@ -243,7 +264,7 @@ app.get("/api/health", (req, res) => {
     res.status(200).json(healthCheck);
 });
 
-// ДОДАНО: Metrics endpoint (для моніторингу)
+// Metrics endpoint (для моніторингу)
 app.get("/api/metrics", (req, res) => {
     const metrics = {
         timestamp: new Date().toISOString(),
@@ -256,7 +277,7 @@ app.get("/api/metrics", (req, res) => {
     res.status(200).json(metrics);
 });
 
-// ДОДАНО: Graceful shutdown handling
+// Graceful shutdown handling
 const gracefulShutdown = (signal) => {
     logger.info(`Received ${signal}. Starting graceful shutdown...`);
 
@@ -287,7 +308,7 @@ const gracefulShutdown = (signal) => {
     }, 30000);
 };
 
-// ДОДАНО: Enhanced error handler з proper logging
+// Enhanced error handler з proper logging
 app.use((err, req, res, next) => {
     const errorDetails = {
         message: err.message,
@@ -318,7 +339,7 @@ app.use((err, req, res, next) => {
     }
 });
 
-// ОНОВЛЕНО: Enhanced 404 handler
+// Enhanced 404 handler
 app.use((req, res) => {
     logger.warn("404 - Route not found", {
         path: req.path,
@@ -334,7 +355,7 @@ app.use((req, res) => {
     });
 });
 
-// ДОДАНО: Process error handlers
+// Process error handlers
 process.on('uncaughtException', (err) => {
     logger.error('Uncaught Exception', err);
     gracefulShutdown('UNCAUGHT_EXCEPTION');
@@ -350,7 +371,27 @@ const server = app.listen(PORT, () => {
     logger.info(`Express server listening on port ${PORT}`);
     logger.info(`Health check available at: http://localhost:${PORT}/api/health`);
     logger.info(`Metrics available at: http://localhost:${PORT}/api/metrics`);
-    logger.info("Enhanced features enabled:");
+    logger.info("🚀 ОПТИМІЗОВАНА СИСТЕМА НАВЧАННЯ ЗАПУЩЕНА:");
+    logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    // ДОДАНО: Інформація про нові функції оптимізації
+    logger.info("⚡ МИТТЄВЕ ЗАВАНТАЖЕННЯ:");
+    logger.info("  ✓ Основні вправи: <100ms (frontend cache)");
+    logger.info("  ✓ Швидка розминка: миттєво");
+    logger.info("  ✓ Інтенсивний режим: миттєво");
+    logger.info("  ✓ Марафон знань: миттєво");
+    logger.info("  ✓ Міксована практика: миттєво");
+
+    logger.info("🧠 РОЗУМНА СИСТЕМА:");
+    logger.info("  ✓ Пріоритизація: Learning > Review");
+    logger.info("  ✓ Автоматична генерація списків вправ");
+    logger.info("  ✓ Оптимізована рандомізація");
+
+    logger.info("🌐 МЕРЕЖЕВІ ВПРАВИ:");
+    logger.info("  ✓ Reading Comprehension: ~2-5s");
+    logger.info("  ✓ Інтерактивний діалог: ~2-5s");
+
+    logger.info("📊 ПІДТРИМУВАНІ ФУНКЦІЇ:");
     logger.info("- Security headers (Helmet)");
     logger.info("- Response compression");
     logger.info("- Advanced rate limiting");
@@ -360,11 +401,20 @@ const server = app.listen(PORT, () => {
     logger.info("- Personal OpenAI API keys");
     logger.info("- Advanced TTS configuration");
     logger.info("- AI-powered flashcard generation");
-    logger.info("- Complete learning system with all exercise types");
-    logger.info("  ✓ Core exercises: sentence-completion, multiple-choice, listen-and-fill, listen-and-choose"); // ОНОВЛЕНО
-    logger.info("  ✓ Additional exercises: dialog, reading-comprehension");
-    logger.info("- Flashcard migration to latest version"); // ДОДАНО
+
+    logger.info("🎯 СИСТЕМА ВПРАВ (6 типів):");
+    logger.info("  ⚡ Основні (миттєве завантаження):");
+    logger.info("    • sentence-completion");
+    logger.info("    • multiple-choice");
+    logger.info("    • listen-and-fill");
+    logger.info("    • listen-and-choose");
+    logger.info("  🌐 Додаткові (мережеве завантаження):");
+    logger.info("    • dialog");
+    logger.info("    • reading-comprehension");
+
+    logger.info("- Flashcard migration to latest version");
     logger.info("- Performance monitoring");
+    logger.info("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     database.connectDB();
 });
