@@ -1,4 +1,4 @@
-// frontend/src/pages/PracticePage.jsx - ОПТИМІЗОВАНО: ШВИДКЕ ЗАВАНТАЖЕННЯ ВПРАВ
+// frontend/src/pages/PracticePage.jsx - ВИПРАВЛЕНО: Правильне оновлення списку вправ після результатів
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useFlashcardStore } from "../store/useFlashcardStore.js";
@@ -130,14 +130,16 @@ const PracticePage = () => {
 
         setPracticeCards(filteredCards);
 
-        // ДОДАНО: Генеруємо список всіх можливих вправ для категорії
+        // ОНОВЛЕНО: Перегенеруємо список при зміні карток або категорії
         generateCategoryExercisesList(filteredCards);
     }, [flashcards, selectedCategory]);
 
-    // ДОДАНО: Функція для генерації списку всіх можливих вправ категорії
+    // ВИПРАВЛЕНО: Функція для генерації списку всіх можливих вправ категорії з актуальним статусом
     const generateCategoryExercisesList = useCallback((cards) => {
         const exercisesList = [];
         let exId = 1;
+
+        console.log(`📋 Regenerating exercises list for ${cards.length} cards`);
 
         // Спочатку додаємо learning картки
         const learningCards = cards.filter(card => card.status === 'learning');
@@ -146,13 +148,24 @@ const PracticePage = () => {
         // Генеруємо вправи для learning карток (пріоритет)
         learningCards.forEach(flashcard => {
             coreExercises.forEach(exerciseType => {
-                // Перевіряємо чи може картка використовуватися у цій вправі
+                // ВИПРАВЛЕНО: Перевіряємо чи може картка використовуватися у цій вправі з актуальним статусом
                 if (canCardUseExercise(flashcard, exerciseType)) {
                     exercisesList.push({
                         exId: exId++,
-                        flashcard,
+                        flashcard: {
+                            ...flashcard,
+                            // ДОДАНО: Зберігаємо актуальний статус вправ на момент генерації
+                            currentExerciseStatus: {
+                                isSentenceCompletionExercise: flashcard.isSentenceCompletionExercise || false,
+                                isMultipleChoiceExercise: flashcard.isMultipleChoiceExercise || false,
+                                isListenAndFillExercise: flashcard.isListenAndFillExercise || false,
+                                isListenAndChooseExercise: flashcard.isListenAndChooseExercise || false
+                            }
+                        },
                         exerciseType,
-                        priority: 'learning' // Пріоритет для learning карток
+                        priority: 'learning',
+                        // ДОДАНО: Позначаємо, що ця вправа була доступна на момент генерації
+                        wasAvailableAtGeneration: true
                     });
                 }
             });
@@ -163,9 +176,18 @@ const PracticePage = () => {
             coreExercises.forEach(exerciseType => {
                 exercisesList.push({
                     exId: exId++,
-                    flashcard,
+                    flashcard: {
+                        ...flashcard,
+                        currentExerciseStatus: {
+                            isSentenceCompletionExercise: flashcard.isSentenceCompletionExercise || false,
+                            isMultipleChoiceExercise: flashcard.isMultipleChoiceExercise || false,
+                            isListenAndFillExercise: flashcard.isListenAndFillExercise || false,
+                            isListenAndChooseExercise: flashcard.isListenAndChooseExercise || false
+                        }
+                    },
                     exerciseType,
-                    priority: 'review' // Нижчий пріоритет
+                    priority: 'review',
+                    wasAvailableAtGeneration: true
                 });
             });
         });
@@ -177,26 +199,70 @@ const PracticePage = () => {
         setCategoryExercisesList(exercisesList);
     }, [coreExercises]);
 
-    // ДОДАНО: Функція перевірки чи може картка використовуватися у вправі
+    // ВИПРАВЛЕНО: Функція перевірки чи може картка використовуватися у вправі з поточними даними з store
     const canCardUseExercise = useCallback((flashcard, exerciseType) => {
+        // ВАЖЛИВО: Отримуємо найактуальніші дані картки з store
+        const currentCard = flashcards.find(card => card._id === flashcard._id);
+        if (!currentCard) {
+            console.warn(`Card ${flashcard._id} not found in current store`);
+            return false;
+        }
+
         // Для review карток - можна використовувати всі вправи
-        if (flashcard.status === 'review') {
+        if (currentCard.status === 'review') {
             return true;
         }
 
-        // Для learning карток - перевіряємо чи не пройшла вже цю вправу
+        // ВИПРАВЛЕНО: Для learning карток - перевіряємо актуальний статус з store
         switch (exerciseType) {
             case 'sentence-completion':
-                return !flashcard.isSentenceCompletionExercise;
+                return !currentCard.isSentenceCompletionExercise;
             case 'multiple-choice':
-                return !flashcard.isMultipleChoiceExercise;
+                return !currentCard.isMultipleChoiceExercise;
             case 'listen-and-fill':
-                return !flashcard.isListenAndFillExercise;
+                return !currentCard.isListenAndFillExercise;
             case 'listen-and-choose':
-                return !flashcard.isListenAndChooseExercise;
+                return !currentCard.isListenAndChooseExercise;
             default:
                 return true;
         }
+    }, [flashcards]);
+
+    // ДОДАНО: Функція для оновлення списку вправ після результату
+    const updateCategoryExercisesListAfterResult = useCallback((completedFlashcardId, completedExerciseType, wasSuccessful) => {
+        console.log(`📋 Updating exercises list after ${completedExerciseType} result for card ${completedFlashcardId} (success: ${wasSuccessful})`);
+
+        setCategoryExercisesList(prevList => {
+            const updatedList = prevList.map(exercise => {
+                // Знаходимо вправу, яка була щойно виконана
+                if (exercise.flashcard._id === completedFlashcardId && exercise.exerciseType === completedExerciseType) {
+                    console.log(`📋 Marking exercise ${completedExerciseType} for card "${exercise.flashcard.text}" as completed`);
+
+                    // ДОДАНО: Позначаємо вправу як виконану
+                    return {
+                        ...exercise,
+                        isCompleted: true,
+                        completedAt: new Date(),
+                        wasSuccessful: wasSuccessful
+                    };
+                }
+                return exercise;
+            });
+
+            const remainingExercises = updatedList.filter(exercise => !exercise.isCompleted);
+            console.log(`📋 Remaining exercises after update: ${remainingExercises.length} (removed ${updatedList.length - remainingExercises.length})`);
+
+            return updatedList;
+        });
+    }, []);
+
+    // ДОДАНО: Функція для видалення завершених вправ з списку
+    const cleanupCompletedExercises = useCallback(() => {
+        setCategoryExercisesList(prevList => {
+            const activeExercises = prevList.filter(exercise => !exercise.isCompleted);
+            console.log(`📋 Cleanup: Removed ${prevList.length - activeExercises.length} completed exercises`);
+            return activeExercises;
+        });
     }, []);
 
     useEffect(() => {
@@ -235,7 +301,7 @@ const PracticePage = () => {
         }
     }, []);
 
-    // ОНОВЛЕНО: Функція для швидкого вибору вправ із заготовленого списку
+    // ВИПРАВЛЕНО: Функція для швидкого вибору вправ із заготовленого списку з перевіркою актуального статусу
     const selectExercisesFromList = useCallback((requestedCount, exerciseMode = 'core') => {
         if (categoryExercisesList.length === 0) {
             console.warn("No exercises available in category list");
@@ -244,12 +310,41 @@ const PracticePage = () => {
 
         console.log(`🎯 Selecting ${requestedCount} exercises from ${categoryExercisesList.length} available exercises`);
 
-        // Розділяємо на learning та review вправи
-        const learningExercises = categoryExercisesList.filter(ex => ex.priority === 'learning');
-        const reviewExercises = categoryExercisesList.filter(ex => ex.priority === 'review');
+        // ВИПРАВЛЕНО: Фільтруємо список, перевіряючи актуальний статус кожної картки
+        const validExercises = categoryExercisesList.filter(exercise => {
+            // Пропускаємо вже завершені вправи
+            if (exercise.isCompleted) {
+                return false;
+            }
 
-        console.log(`   Learning exercises available: ${learningExercises.length}`);
-        console.log(`   Review exercises available: ${reviewExercises.length}`);
+            // КЛЮЧОВА ЗМІНА: Перевіряємо актуальний статус картки з store
+            const currentCard = flashcards.find(card => card._id === exercise.flashcard._id);
+            if (!currentCard) {
+                console.warn(`Card ${exercise.flashcard._id} not found in current store, skipping`);
+                return false;
+            }
+
+            // Перевіряємо чи може картка ще використовуватися у цій вправі
+            const canUse = canCardUseExercise(currentCard, exercise.exerciseType);
+            if (!canUse) {
+                console.log(`⏭️ Skipping ${exercise.exerciseType} for "${currentCard.text}" - already completed`);
+            }
+            return canUse;
+        });
+
+        console.log(`🔍 After validation: ${validExercises.length} valid exercises from ${categoryExercisesList.length} total`);
+
+        if (validExercises.length === 0) {
+            console.warn("No valid exercises available after filtering");
+            return [];
+        }
+
+        // Розділяємо на learning та review вправи
+        const learningExercises = validExercises.filter(ex => ex.priority === 'learning');
+        const reviewExercises = validExercises.filter(ex => ex.priority === 'review');
+
+        console.log(`   Valid learning exercises: ${learningExercises.length}`);
+        console.log(`   Valid review exercises: ${reviewExercises.length}`);
 
         let selectedExercises = [];
 
@@ -286,7 +381,7 @@ const PracticePage = () => {
             finalExercises.map((ex, i) => `${i+1}. ${ex.flashcard.text} (${ex.exerciseType}, ${ex.priority})`));
 
         return finalExercises;
-    }, [categoryExercisesList]);
+    }, [categoryExercisesList, flashcards, canCardUseExercise]);
 
     const generateOptionCards = useCallback((rightCard, allCards, exerciseType) => {
         if (exerciseType === 'listen-and-fill') {
@@ -342,7 +437,7 @@ const PracticePage = () => {
         };
     }, [currentExercise, currentQuestionIndex, currentSessionExercises, generateOptionCards, practiceCards]);
 
-    // ОНОВЛЕНО: Швидка ініціалізація сеансів використовуючи заготовлений список
+    // ОНОВЛЕНО: Швидка ініціалізація сеансів використовуючи заготовлений список з валідацією
     const initializeExerciseSession = useCallback(async (exerciseType, maxQuestions = 10) => {
         if (isProcessing) {
             console.log("Request already in progress, ignoring new request");
@@ -389,11 +484,11 @@ const PracticePage = () => {
 
                 console.log(`⚡ Fast loading: ${exerciseType} needs ${requiredCount} exercises from ${categoryExercisesList.length} available`);
 
-                // Швидкий вибір вправ із заготовленого списку
+                // ВИПРАВЛЕНО: Швидкий вибір вправ із заготовленого списку з валідацією
                 const selectedExercises = selectExercisesFromList(requiredCount, 'core');
 
                 if (selectedExercises.length === 0) {
-                    throw new Error(`No exercises selected for ${exerciseType}`);
+                    throw new Error(`No valid exercises selected for ${exerciseType} - all exercises may be completed`);
                 }
 
                 if (componentMountedRef.current && !requestToken.cancelled) {
@@ -408,7 +503,7 @@ const PracticePage = () => {
                     safeSetState(setExerciseResults, null);
                     safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
 
-                    console.log(`⚡ ${exerciseType} session initialized INSTANTLY with ${selectedExercises.length} exercises`);
+                    console.log(`⚡ ${exerciseType} session initialized INSTANTLY with ${selectedExercises.length} valid exercises`);
 
                     return {
                         type: exerciseType,
@@ -426,7 +521,7 @@ const PracticePage = () => {
                     .filter(ex => ex.exerciseType === exerciseType);
 
                 if (selectedExercises.length === 0) {
-                    throw new Error(`No ${exerciseType} exercises available`);
+                    throw new Error(`No ${exerciseType} exercises available - all may be completed`);
                 }
 
                 if (componentMountedRef.current && !requestToken.cancelled) {
@@ -441,7 +536,7 @@ const PracticePage = () => {
                     safeSetState(setExerciseResults, null);
                     safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
 
-                    console.log(`⚡ ${exerciseType} session initialized INSTANTLY with ${selectedExercises.length} exercises`);
+                    console.log(`⚡ ${exerciseType} session initialized INSTANTLY with ${selectedExercises.length} valid exercises`);
 
                     return {
                         type: exerciseType,
@@ -458,7 +553,7 @@ const PracticePage = () => {
         } catch (error) {
             console.error("Error initializing exercise session:", error);
             if (componentMountedRef.current && !requestToken.cancelled) {
-                alert("Помилка ініціалізації вправи");
+                alert(error.message || "Помилка ініціалізації вправи");
             }
             return null;
         } finally {
@@ -654,7 +749,7 @@ const PracticePage = () => {
         safeSetState(setCurrentSessionProgress, updatedProgress);
     }, [safeSetState]);
 
-    // Обробка результатів
+    // ВИПРАВЛЕНО: Обробка результатів з оновленням списку вправ
     const handleQuestionResult = useCallback(async (result) => {
         if (isProcessing || !componentMountedRef.current) {
             console.log("Question result ignored: processing or unmounted");
@@ -737,6 +832,9 @@ const PracticePage = () => {
 
                         const exerciseResult = await handleExerciseResult(flashcardId, currentExerciseType, result.isCorrect);
 
+                        // ДОДАНО: Оновлюємо список вправ після результату
+                        updateCategoryExercisesListAfterResult(flashcardId, currentExerciseType, result.isCorrect);
+
                         currentWordProgress = [{
                             flashcardId,
                             text: result.rightOptionCard.text,
@@ -800,6 +898,9 @@ const PracticePage = () => {
                         ? [...sessionProgress, ...currentWordProgress]
                         : sessionProgress;
 
+                    // ДОДАНО: Очищаємо завершені вправи після завершення сесії
+                    cleanupCompletedExercises();
+
                     handleSessionComplete(newStats, updatedProgress);
                 }
             }
@@ -810,7 +911,7 @@ const PracticePage = () => {
                 safeSetState(setIsProcessing, false);
             }
         }
-    }, [isProcessing, safeSetState, handleExerciseResult, sessionStats, currentQuestionIndex, currentSessionExercises, currentExercise, sessionProgress, sessionUsedWordIds, getFlashcards, selectedCategory]);
+    }, [isProcessing, safeSetState, handleExerciseResult, sessionStats, currentQuestionIndex, currentSessionExercises, currentExercise, sessionProgress, sessionUsedWordIds, getFlashcards, selectedCategory, updateCategoryExercisesListAfterResult, cleanupCompletedExercises]);
 
     const handleSessionComplete = useCallback((finalStats, actualProgress = null) => {
         if (!componentMountedRef.current) return;
@@ -888,6 +989,9 @@ const PracticePage = () => {
                 safeSetState(setSessionUsedWordIds, []);
                 safeSetState(setCurrentSessionExercises, []);
 
+                // ДОДАНО: Очищаємо завершені вправи перед перезапуском
+                cleanupCompletedExercises();
+
                 const session = await initializeExerciseSession(currentType);
 
                 if (session && componentMountedRef.current) {
@@ -904,7 +1008,7 @@ const PracticePage = () => {
                 }
             }
         }
-    }, [isProcessing, isRestarting, currentExercise, exerciseResults, safeSetState, initializeExerciseSession]);
+    }, [isProcessing, isRestarting, currentExercise, exerciseResults, safeSetState, initializeExerciseSession, cleanupCompletedExercises]);
 
     const handleExitExercise = useCallback(() => {
         if (isProcessing) {
@@ -1274,12 +1378,12 @@ const PracticePage = () => {
                     </div>
                 </div>
 
-                {/* ДОДАНО: Індикатор оптимізації */}
+                {/* ОНОВЛЕНО: Індикатор оптимізації з інформацією про валідні вправи */}
                 {categoryExercisesList.length > 0 && (
                     <div className="absolute top-4 right-4">
                         <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium flex items-center">
                             <Zap className="w-4 h-4 mr-1" />
-                            {categoryExercisesList.length} готових вправ
+                            {categoryExercisesList.filter(ex => !ex.isCompleted).length} готових вправ
                         </div>
                     </div>
                 )}
@@ -1394,7 +1498,9 @@ const PracticePage = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {quickPractice.map((practice, index) => {
-                                    const isAvailable = categoryExercisesList.length > 0;
+                                    // ВИПРАВЛЕНО: Перевіряємо кількість валідних вправ
+                                    const validExercises = categoryExercisesList.filter(ex => !ex.isCompleted);
+                                    const isAvailable = validExercises.length >= practice.cards;
 
                                     return (
                                         <div
@@ -1432,6 +1538,10 @@ const PracticePage = () => {
                                                     <span>{practice.time}</span>
                                                     <span className="mx-2">•</span>
                                                     <span>до {practice.cards} карток</span>
+                                                </div>
+                                                {/* ДОДАНО: Індикатор доступних вправ */}
+                                                <div className="mt-3 text-xs opacity-80">
+                                                    {validExercises.length} валідних вправ
                                                 </div>
                                             </div>
                                         </div>
@@ -1473,12 +1583,16 @@ const PracticePage = () => {
                                                 Миттєво
                                             </div>
                                         </div>
+                                        {/* ДОДАНО: Індикатор доступних вправ */}
+                                        <div className="mt-2 text-sm opacity-80">
+                                            {categoryExercisesList.filter(ex => !ex.isCompleted).length} валідних вправ доступно
+                                        </div>
                                     </div>
                                     <button
                                         onClick={() => !isProcessing && !isRestarting && handleExerciseClick('mixed-practice')}
-                                        disabled={categoryExercisesList.length < 3 || isProcessing || isRestarting}
+                                        disabled={categoryExercisesList.filter(ex => !ex.isCompleted).length < 15 || isProcessing || isRestarting}
                                         className={`bg-white/10 hover:bg-white/20 disabled:bg-white/10 text-white px-14 py-4 rounded-xl font-semibold transition-all duration-200 flex items-center ${
-                                            isProcessing || isRestarting || categoryExercisesList.length < 3
+                                            isProcessing || isRestarting || categoryExercisesList.filter(ex => !ex.isCompleted).length < 15
                                                 ? 'disabled:cursor-not-allowed'
                                                 : 'cursor-pointer'
                                         }`}
@@ -1497,9 +1611,13 @@ const PracticePage = () => {
                             <Target className="w-5 h-5 mr-2 text-blue-500" />
                             Основні вправи ⚡ (Миттєве завантаження)
                         </h3>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-2 gap-8">
+                        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-8">
                             {coreExercisesData.map((exercise) => {
-                                const isAvailable = categoryExercisesList.length >= exercise.minCards;
+                                // ВИПРАВЛЕНО: Перевіряємо валідні вправи для конкретного типу
+                                const validExercisesForType = categoryExercisesList.filter(ex =>
+                                    ex.exerciseType === exercise.id && !ex.isCompleted
+                                );
+                                const isAvailable = validExercisesForType.length >= exercise.minCards;
                                 const Icon = exercise.icon;
 
                                 return (
@@ -1559,7 +1677,7 @@ const PracticePage = () => {
                                             {isAvailable ? (
                                                 <div className="flex items-center justify-between">
                                                     <span className="text-sm text-gray-500">
-                                                        {categoryExercisesList.filter(ex => ex.exerciseType === exercise.id).length} вправ готово
+                                                        {validExercisesForType.length} вправ готово
                                                     </span>
                                                     <div className={`px-4 py-2 bg-gradient-to-r ${exercise.color} text-white rounded-lg text-sm font-medium`}>
                                                         Почати
@@ -1567,7 +1685,7 @@ const PracticePage = () => {
                                                 </div>
                                             ) : (
                                                 <div className="text-sm text-pink-500">
-                                                    Потрібно мінімум {exercise.minCards} карток
+                                                    Потрібно мінімум {exercise.minCards} карток (доступно: {validExercisesForType.length})
                                                 </div>
                                             )}
                                         </div>

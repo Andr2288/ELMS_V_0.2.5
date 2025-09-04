@@ -1,4 +1,4 @@
-// backend/src/controllers/flashcard.controller.js - ОПТИМІЗОВАНО: ПІДТРИМКА ШВИДКОГО ЗАВАНТАЖЕННЯ
+// backend/src/controllers/flashcard.controller.js - ВИПРАВЛЕНО: Оновлено для підтримки динамічного оновлення статусу
 
 import Flashcard from "../models/flashcard.model.js";
 import Category from "../models/category.model.js";
@@ -199,6 +199,7 @@ const getFlashcardsGrouped = async (req, res) => {
   }
 };
 
+// ВИПРАВЛЕНО: Покращена обробка результатів вправ з детальним логуванням
 const handleExerciseResult = async (req, res) => {
   try {
     const { flashcardId, exerciseType, isCorrect, usedWordIds } = req.body;
@@ -240,13 +241,22 @@ const handleExerciseResult = async (req, res) => {
         continue;
       }
 
-      // Review картки НЕ обробляються у вправах
+      // ВАЖЛИВО: Review картки НЕ обробляються у вправах
       if (flashcard.status === 'review') {
         console.log(`⏭️ Skipping review card "${flashcard.text}" - review cards don't participate in exercises`);
         continue;
       }
 
       let progressChanged = false;
+
+      // ДОДАНО: Логування початкового стану
+      console.log(`📝 Processing "${flashcard.text}" for ${exerciseType}:`);
+      console.log(`   Current status: ${flashcard.status}`);
+      console.log(`   Sentence: ${flashcard.isSentenceCompletionExercise}`);
+      console.log(`   Multiple: ${flashcard.isMultipleChoiceExercise}`);
+      console.log(`   Listen: ${flashcard.isListenAndFillExercise}`);
+      console.log(`   Choose: ${flashcard.isListenAndChooseExercise}`);
+      console.log(`   Reading: ${flashcard.isReadingComprehensionExercise}`);
 
       // Спеціальна логіка для reading comprehension
       if (exerciseType === 'reading-comprehension') {
@@ -265,7 +275,14 @@ const handleExerciseResult = async (req, res) => {
           text: flashcard.text,
           status: flashcard.status,
           progressInfo: flashcard.getProgressInfo(),
-          wasUpdated: progressChanged
+          wasUpdated: progressChanged,
+          // ДОДАНО: Включаємо всі поля статусів для фронтенду
+          isSentenceCompletionExercise: flashcard.isSentenceCompletionExercise,
+          isMultipleChoiceExercise: flashcard.isMultipleChoiceExercise,
+          isListenAndFillExercise: flashcard.isListenAndFillExercise,
+          isListenAndChooseExercise: flashcard.isListenAndChooseExercise,
+          isReadingComprehensionExercise: flashcard.isReadingComprehensionExercise,
+          lastReviewedAt: flashcard.lastReviewedAt
         });
 
       } else if (exerciseType === 'dialog') {
@@ -282,7 +299,13 @@ const handleExerciseResult = async (req, res) => {
           text: flashcard.text,
           status: flashcard.status,
           progressInfo: flashcard.getProgressInfo(),
-          wasUpdated: progressChanged
+          wasUpdated: progressChanged,
+          isSentenceCompletionExercise: flashcard.isSentenceCompletionExercise,
+          isMultipleChoiceExercise: flashcard.isMultipleChoiceExercise,
+          isListenAndFillExercise: flashcard.isListenAndFillExercise,
+          isListenAndChooseExercise: flashcard.isListenAndChooseExercise,
+          isReadingComprehensionExercise: flashcard.isReadingComprehensionExercise,
+          lastReviewedAt: flashcard.lastReviewedAt
         });
 
         console.log(`Interactive dialog completed for word: ${flashcard.text}`);
@@ -294,6 +317,14 @@ const handleExerciseResult = async (req, res) => {
 
           if (progressChanged) {
             await flashcard.save();
+
+            // ДОДАНО: Логування змін після збереження
+            console.log(`✅ After correct answer processing for "${flashcard.text}":`);
+            console.log(`   Status: ${flashcard.status}`);
+            console.log(`   Sentence: ${flashcard.isSentenceCompletionExercise}`);
+            console.log(`   Multiple: ${flashcard.isMultipleChoiceExercise}`);
+            console.log(`   Listen: ${flashcard.isListenAndFillExercise}`);
+            console.log(`   Choose: ${flashcard.isListenAndChooseExercise}`);
           }
 
           processedWords.push({
@@ -301,7 +332,14 @@ const handleExerciseResult = async (req, res) => {
             text: flashcard.text,
             status: flashcard.status,
             progressInfo: flashcard.getProgressInfo(),
-            wasUpdated: progressChanged
+            wasUpdated: progressChanged,
+            // ВАЖЛИВО: Включаємо актуальні статуси після обробки
+            isSentenceCompletionExercise: flashcard.isSentenceCompletionExercise,
+            isMultipleChoiceExercise: flashcard.isMultipleChoiceExercise,
+            isListenAndFillExercise: flashcard.isListenAndFillExercise,
+            isListenAndChooseExercise: flashcard.isListenAndChooseExercise,
+            isReadingComprehensionExercise: flashcard.isReadingComprehensionExercise,
+            lastReviewedAt: flashcard.lastReviewedAt
           });
         }
       } else {
@@ -311,6 +349,11 @@ const handleExerciseResult = async (req, res) => {
 
           if (progressChanged) {
             await flashcard.save();
+
+            // ДОДАНО: Логування змін після неправильної відповіді
+            console.log(`❌ After incorrect answer processing for "${flashcard.text}":`);
+            console.log(`   Status: ${flashcard.status} (should be learning)`);
+            console.log(`   All exercise flags reset to false`);
           }
 
           processedWords.push({
@@ -318,7 +361,14 @@ const handleExerciseResult = async (req, res) => {
             text: flashcard.text,
             status: flashcard.status,
             progressInfo: flashcard.getProgressInfo(),
-            wasUpdated: progressChanged
+            wasUpdated: progressChanged,
+            // ВАЖЛИВО: Включаємо актуальні статуси після скидання
+            isSentenceCompletionExercise: flashcard.isSentenceCompletionExercise,
+            isMultipleChoiceExercise: flashcard.isMultipleChoiceExercise,
+            isListenAndFillExercise: flashcard.isListenAndFillExercise,
+            isListenAndChooseExercise: flashcard.isListenAndChooseExercise,
+            isReadingComprehensionExercise: flashcard.isReadingComprehensionExercise,
+            lastReviewedAt: flashcard.lastReviewedAt
           });
         }
       }
@@ -353,11 +403,11 @@ const handleExerciseResult = async (req, res) => {
     console.log(`   Words: ${processedWords.map(w => w.text).join(', ')}`);
     console.log(`   Updated: ${processedWords.filter(w => w.wasUpdated).length}`);
 
-    // Повертаємо результат
+    // ВИПРАВЛЕНО: Повертаємо детальну інформацію для фронтенду
     return res.status(200).json({
       success: true,
       flashcard: processedWords.length > 0 ? processedWords[0] : null,
-      allWords: processedWords,
+      allWords: processedWords, // ВАЖЛИВО: Масив всіх оброблених слів з актуальними статусами
       message: resultMessage,
       isMainExercise: isMainExercise,
       exerciseType: exerciseType,
@@ -370,7 +420,7 @@ const handleExerciseResult = async (req, res) => {
   }
 };
 
-// ОНОВЛЕНО: Тепер підтримує швидкий режим для core вправ та повний режим для advanced
+// ВИПРАВЛЕНО: Покращено для підтримки швидкого режиму для core вправ та повного режиму для advanced
 const getWordsForExercise = async (req, res) => {
   try {
     const { exerciseType } = req.params;
@@ -397,7 +447,7 @@ const getWordsForExercise = async (req, res) => {
     let wasRotationApplied = false;
     let allCategoryWords = [];
 
-    // ДОДАНО: Швидкий режим для core вправ
+    // ШВИДКИЙ РЕЖИМ: Core вправи використовують оптимізований підхід
     const coreExercises = ['sentence-completion', 'multiple-choice', 'listen-and-fill', 'listen-and-choose'];
 
     if (coreExercises.includes(exerciseType)) {
@@ -420,7 +470,7 @@ const getWordsForExercise = async (req, res) => {
         baseQuery._id = { $nin: excludeIdsList };
       }
 
-      // Додаємо умову для конкретної вправи
+      // Додаємо умову для конкретної вправи - ВАЖЛИВО для правильної фільтрації
       switch (exerciseType) {
         case 'sentence-completion':
           baseQuery.isSentenceCompletionExercise = false;
@@ -436,22 +486,28 @@ const getWordsForExercise = async (req, res) => {
           break;
       }
 
-      // Отримуємо всі доступні learning слова, потім перемішуємо
+      // ВИПРАВЛЕНО: Отримуємо тільки ті learning слова, які ще не пройшли цю вправу
       let learningWords = await Flashcard.find(baseQuery)
           .populate('categoryId', 'name color')
-          .sort({ lastReviewedAt: 1 });
+          .sort({ lastReviewedAt: 1 }); // Сортуємо за датою останнього повторення
+
+      console.log(`⚡ Fast mode: Found ${learningWords.length} available learning words for ${exerciseType} (before filtering)`);
+
+      if (learningWords.length > 0) {
+        console.log(`⚡ Available words:`, learningWords.map(w => `"${w.text}" (sentence:${w.isSentenceCompletionExercise}, multiple:${w.isMultipleChoiceExercise}, listen:${w.isListenAndFillExercise}, choose:${w.isListenAndChooseExercise})`));
+      }
 
       // Перемішуємо learning слова
       learningWords = shuffleArray(learningWords);
       words = learningWords.slice(0, parseInt(limit));
 
-      console.log(`⚡ Fast mode: Found ${words.length} learning words for ${exerciseType} (shuffled):`, words.map(w => w.text));
+      console.log(`⚡ Fast mode: Selected ${words.length} learning words for ${exerciseType} (shuffled):`, words.map(w => w.text));
 
       return res.status(200).json({
         words,
         total: words.length,
         exerciseType,
-        mode: 'fast', // ДОДАНО: індикатор швидкого режиму
+        mode: 'fast', // Індикатор швидкого режиму
         breakdown: {
           learning: words.length,
           review: 0
@@ -459,7 +515,7 @@ const getWordsForExercise = async (req, res) => {
       });
     }
 
-    // ПОВНИЙ РЕЖИМ для advanced вправ (стара логіка)
+    // ПОВНИЙ РЕЖИМ: Advanced вправи (стара логіка)
     console.log(`🌐 Network mode: Getting words for advanced exercise ${exerciseType}`);
 
     // Логіка для reading comprehension з НЕГАЙНИМ позначенням слів
@@ -630,7 +686,14 @@ const resetWordProgress = async (req, res) => {
         _id: flashcard._id,
         text: flashcard.text,
         status: flashcard.status,
-        progressInfo: flashcard.getProgressInfo()
+        progressInfo: flashcard.getProgressInfo(),
+        // ДОДАНО: Включаємо актуальні статуси після скидання
+        isSentenceCompletionExercise: flashcard.isSentenceCompletionExercise,
+        isMultipleChoiceExercise: flashcard.isMultipleChoiceExercise,
+        isListenAndFillExercise: flashcard.isListenAndFillExercise,
+        isListenAndChooseExercise: flashcard.isListenAndChooseExercise,
+        isReadingComprehensionExercise: flashcard.isReadingComprehensionExercise,
+        lastReviewedAt: flashcard.lastReviewedAt
       }
     });
 
