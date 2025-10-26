@@ -1,4 +1,4 @@
-// backend/src/routes/flashcard.route.js - ОНОВЛЕНО З НОВИМ ENDPOINT ДЛЯ МІГРАЦІЇ
+// backend/src/routes/flashcard.route.js - ОНОВЛЕНО: Видалено міграцію
 
 import express from "express";
 
@@ -18,11 +18,11 @@ router.get("/grouped", authMiddleware.protectRoute, flashcardController.getFlash
 
 // РОУТИ ДЛЯ ЛОГІКИ ВИВЧЕННЯ
 
-// Обробка результату вправи (підтримує всі типи: основні та додаткові)
+// Обробка результату вправи (підтримує всі типи: основні та reading-comprehension)
 router.post("/exercise-result", authMiddleware.protectRoute, flashcardController.handleExerciseResult);
 
-// Отримання слів для конкретної вправи (підтримує всі типи: основні та додаткові)
-// ОНОВЛЕНО: Підтримувані типи: sentence-completion, multiple-choice, listen-and-fill, listen-and-choose, dialog, reading-comprehension
+// Отримання слів для конкретної вправи
+// Підтримувані типи: sentence-completion, multiple-choice, listen-and-fill, listen-and-choose, reading-comprehension
 router.get("/exercise/:exerciseType", authMiddleware.protectRoute, flashcardController.getWordsForExercise);
 
 // Отримання статистики навчання
@@ -33,8 +33,5 @@ router.get("/learning/progress", authMiddleware.protectRoute, flashcardControlle
 
 // Скидання прогресу конкретного слова
 router.post("/learning/reset/:id", authMiddleware.protectRoute, flashcardController.resetWordProgress);
-
-// ДОДАНО: Новий endpoint для оновлення карток до останньої версії
-router.post("/migrate-to-latest", authMiddleware.protectRoute, flashcardController.migrateFlashcardsToLatestVersion);
 
 export default router;
