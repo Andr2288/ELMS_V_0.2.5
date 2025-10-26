@@ -425,26 +425,6 @@ export const useFlashcardStore = create((set, get) => ({
     }
   },
 
-  migrateFlashcardsToLatestVersion: async () => {
-    try {
-      const res = await axiosInstance.post("/flashcards/migrate-to-latest");
-
-      await get().getFlashcards(get().currentCategoryFilter);
-
-      toast.success(res.data.message, {
-        duration: 5000,
-        position: 'top-center'
-      });
-
-      return res.data;
-    } catch (error) {
-      console.error("Error migrating flashcards:", error);
-      const message = error.response?.data?.message || "Помилка оновлення карток";
-      toast.error(message);
-      throw error;
-    }
-  },
-
   // ОНОВЛЕНО: Покращені функції для роботи з оптимізованою логікою вправ
 
   // Генерація повного списку вправ для категорії з актуальним статусом
@@ -805,25 +785,6 @@ export const useFlashcardStore = create((set, get) => ({
       return response.data.result;
     } catch (error) {
       console.error("Error generating matching description:", error);
-      throw error;
-    }
-  },
-
-  generateInteractiveDialog: async (words, englishLevel) => {
-    try {
-      const wordsString = Array.isArray(words) ? words.join(', ') : words;
-
-      console.log(`🎯 Store: Generating dialog for words: ${wordsString} (backend will randomize)`);
-
-      const response = await axiosInstance.post("/openai/generate-flashcard", {
-        text: wordsString,
-        englishLevel,
-        promptType: "dialog"
-      });
-
-      return response.data.result;
-    } catch (error) {
-      console.error("Error generating interactive dialog:", error);
       throw error;
     }
   },

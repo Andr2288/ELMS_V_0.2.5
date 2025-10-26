@@ -7,16 +7,13 @@ import MultipleChoiceExercise from "../components/exercises/MultipleChoiceExerci
 import ListenAndFillExercise from "../components/exercises/ListenAndFillExercise.jsx";
 import ListenAndChooseExercise from "../components/exercises/ListenAndChooseExercise.jsx";
 import SentenceCompletionExercise from "../components/exercises/SentenceCompletionExercise.jsx";
-import DialogExercise from "../components/exercises/DialogExercise.jsx";
 import ReadingComprehensionExercise from "../components/exercises/ReadingComprehensionExercise.jsx";
 import ExerciseResult from "../components/shared/ExerciseResult.jsx";
 import {
-    Target, BookOpen, Play, Headphones, Shuffle, Brain, Type,
-    CheckSquare, Volume2, Clock, ArrowRight, Star, TrendingUp,
-    Calendar, Filter, X, Zap, Award, Activity, Users,
-    Sparkles, Flame, ChevronRight, BarChart3, Medal,
-    Globe, Settings, RefreshCw, Lightbulb, Timer, Trophy,
-    MessageCircle, FileText, Eye, Layers, Loader, Download
+    Target, BookOpen, Play, Headphones, Brain,
+    Type, Volume2, Clock, ArrowRight, TrendingUp, Filter, Zap,
+    Sparkles, Flame, ChevronRight, Medal,
+    Globe, Lightbulb, Timer, Trophy, FileText, Layers
 } from "lucide-react";
 
 // Функція для перемішування масиву (Fisher-Yates shuffle)
@@ -71,9 +68,6 @@ const PracticePage = () => {
     // Стейт для лоадера при restart
     const [isRestarting, setIsRestarting] = useState(false);
 
-    // Стейт для кнопки міграції
-    const [isMigrating, setIsMigrating] = useState(false);
-
     const [practiceStats, setPracticeStats] = useState({
         todayCompleted: 3,
         dailyGoal: 10,
@@ -85,7 +79,7 @@ const PracticePage = () => {
 
     // ОНОВЛЕНО: Визначення основних та додаткових вправ
     const coreExercises = ['multiple-choice', 'sentence-completion', 'listen-and-fill', 'listen-and-choose'];
-    const advancedExercises = ['dialog', 'reading-comprehension'];
+    const advancedExercises = ['reading-comprehension'];
     const allExerciseTypes = [...coreExercises, ...advancedExercises];
 
     useEffect(() => {
@@ -654,78 +648,6 @@ const PracticePage = () => {
             }
         }
 
-        // Dialog логіка
-        if (exerciseType === 'dialog') {
-            console.log(`💬 Starting dialog session with 3 questions`);
-
-            const minCardsRequired = 3;
-
-            if (practiceCards.length < minCardsRequired) {
-                if (componentMountedRef.current && !requestToken.cancelled) {
-                    alert(`Для цієї вправи потрібно мінімум ${minCardsRequired} карток. Зараз доступно: ${practiceCards.length}`);
-                }
-                return null;
-            }
-
-            const sessionUsedWordIds = sessionProgress
-                .filter(progress => progress.exerciseType === 'dialog')
-                .map(progress => progress.flashcardId);
-
-            try {
-                const wordsData = await getWordsForExercise(
-                    'dialog',
-                    3,
-                    selectedCategory === 'all' ? null : selectedCategory,
-                    sessionUsedWordIds
-                );
-
-                if (requestToken.cancelled || !componentMountedRef.current) {
-                    return null;
-                }
-
-                if (wordsData.words.length < 3) {
-                    if (componentMountedRef.current && !requestToken.cancelled) {
-                        alert(`Недостатньо слів для діалогу. Потрібно мінімум 3, доступно: ${wordsData.words.length}`);
-                    }
-                    return null;
-                }
-
-                const selectedCards = shuffleArray([...wordsData.words]);
-
-                if (componentMountedRef.current && !requestToken.cancelled) {
-                    safeSetState(setSessionCards, selectedCards);
-                    safeSetState(setCurrentQuestionIndex, 0);
-                    safeSetState(setSessionStats, { correct: 0, total: 0 });
-                    safeSetState(setSessionProgress, []);
-                    safeSetState(setShowExerciseResult, false);
-                    safeSetState(setExerciseResults, null);
-                    safeSetState(setCurrentSessionProgress, { correct: 0, currentAnswered: 0 });
-
-                    const fakeExercises = selectedCards.map(card => ({
-                        flashcard: card,
-                        exerciseType: 'dialog'
-                    }));
-                    safeSetState(setCurrentSessionExercises, fakeExercises);
-
-                    console.log(`💬 Dialog session initialized with 3 questions for words (shuffled):`,
-                        selectedCards.map(c => c.text));
-
-                    return {
-                        type: exerciseType,
-                        cards: selectedCards,
-                        mode: 'advanced',
-                        loadTime: 'network'
-                    };
-                }
-            } catch (error) {
-                console.error("Error getting words for dialog:", error);
-                if (componentMountedRef.current && !requestToken.cancelled) {
-                    alert("Помилка підготовки діалогу");
-                }
-                return null;
-            }
-        }
-
         return null;
     }, [getWordsForExercise, selectedCategory, practiceCards, sessionProgress, safeSetState, getFlashcards]);
 
@@ -1047,32 +969,6 @@ const PracticePage = () => {
         // Placeholder for card update
     }, []);
 
-    // Обробник для кнопки міграції карток
-    const handleMigrateFlashcards = useCallback(async () => {
-        if (isMigrating || isProcessing || isRestarting) {
-            console.log("Migration ignored: already processing");
-            return;
-        }
-
-        setIsMigrating(true);
-
-        try {
-            console.log("🔄 Starting flashcard migration to latest version...");
-            const result = await migrateFlashcardsToLatestVersion();
-
-            console.log("✅ Migration completed:", result);
-
-            setTimeout(() => {
-                getLearningStats();
-            }, 1000);
-
-        } catch (error) {
-            console.error("❌ Migration failed:", error);
-        } finally {
-            setIsMigrating(false);
-        }
-    }, [isMigrating, isProcessing, isRestarting, migrateFlashcardsToLatestVersion, getLearningStats]);
-
     // Exercise types data з новою вправою
     const coreExercisesData = [
         {
@@ -1134,20 +1030,6 @@ const PracticePage = () => {
     ];
 
     const advancedExercisesData = [
-        {
-            id: 'dialog',
-            title: 'Інтерактивний діалог',
-            description: 'Створіть свій шлях у розмові та покращте читання',
-            icon: MessageCircle,
-            color: 'from-indigo-500 to-purple-500',
-            difficulty: 'Легкий',
-            difficultyColor: 'text-green-600',
-            difficultyBg: 'bg-green-600',
-            time: '3-5 хв (3 питання)',
-            minCards: 3,
-            category: 'advanced',
-            features: ['Інтерактивні рішення', 'Практика читання', 'Контекстне розуміння']
-        },
         {
             id: 'reading-comprehension',
             title: 'Розуміння прочитаного',
@@ -1301,19 +1183,6 @@ const PracticePage = () => {
                 case 'listen-and-choose':
                     return (
                         <ListenAndChooseExercise
-                            rightOptionCard={currentQuestion.rightOptionCard}
-                            optionCards={currentQuestion.optionCards}
-                            onExit={handleQuestionResult}
-                            progress={progressData}
-                            isLastQuestion={isLastQuestion}
-                            onRestart={handleRestartExercise}
-                            isProcessing={isProcessing}
-                            onProgressUpdate={handleProgressUpdate}
-                        />
-                    );
-                case 'dialog':
-                    return (
-                        <DialogExercise
                             rightOptionCard={currentQuestion.rightOptionCard}
                             optionCards={currentQuestion.optionCards}
                             onExit={handleQuestionResult}
@@ -1753,56 +1622,6 @@ const PracticePage = () => {
                                     </div>
                                 );
                             })}
-                        </div>
-                    </div>
-
-                    {/* Кнопка оновлення до останньої версії */}
-                    <div className="border-t border-gray-200 pt-8">
-                        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <div className="bg-gradient-to-r from-blue-500 to-indigo-600 w-12 h-12 rounded-xl flex items-center justify-center mr-4">
-                                        <Download className="w-6 h-6 text-white" />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-lg font-semibold text-gray-900 mb-1">
-                                            Оновити до останньої версії
-                                        </h4>
-                                        <p className="text-sm text-gray-600">
-                                            Оновіть всі ваші флешкартки для сумісності з новими функціями
-                                        </p>
-                                    </div>
-                                </div>
-                                <button
-                                    onClick={handleMigrateFlashcards}
-                                    disabled={isMigrating || isProcessing || isRestarting || flashcards.length === 0}
-                                    className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
-                                        isMigrating || isProcessing || isRestarting || flashcards.length === 0
-                                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                                            : 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white hover:from-blue-700 hover:to-indigo-700 hover:shadow-lg cursor-pointer'
-                                    }`}
-                                >
-                                    {isMigrating ? (
-                                        <>
-                                            <Loader className="w-5 h-5 mr-2 animate-spin" />
-                                            Оновлюю...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Download className="w-5 h-5 mr-2" />
-                                            Оновити
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                            {flashcards.length === 0 && (
-                                <div className="mt-3 text-sm text-amber-600 bg-amber-50 px-3 py-2 rounded-lg">
-                                    <span className="flex items-center">
-                                        <Clock className="w-4 h-4 mr-2" />
-                                        Немає карток для оновлення
-                                    </span>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
