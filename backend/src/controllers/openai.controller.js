@@ -9,7 +9,6 @@ import {
     generateRegenerateExamplesPrompt,
     getRandomTextType,
     getRandomSentenceType,
-    getRandomDialogType
 } from "../services/prompts.js";
 
 // Константи для таймаутів
