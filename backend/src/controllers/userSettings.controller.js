@@ -308,7 +308,6 @@ const getAvailableOptions = async (req, res) => {
 // Тестування API ключа
 const testApiKey = async (req, res) => {
     try {
-        const userId = req.user._id;
         const { apiKey } = req.body;
 
         if (!apiKey || !apiKey.trim()) {

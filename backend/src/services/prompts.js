@@ -48,7 +48,7 @@ Task: Create an detailed explanation/description for the word/phrase: "${text}".
 
 Rules:
 - Write 1-2 sentences max.
-- Do NOT use the target word itself but you can use synonims.
+- Do NOT use the target word itself but you can use synonyms.
 - OPTIONALLY start with a categorization like "It's a thing that...", "It's a feeling when...", "It's a verb that means...", "It's a noun for..." etc.
 - Do NOT add extra phrases like "Here is an explanation" or "Certainly".
 - The explanation should be in the given English level.
@@ -231,7 +231,7 @@ Return JSON format:
 
 1. DETAILED MEANING: Start with a clear, complete definition of the word. Explain what it means in depth, including any nuances or variations
 2. USAGE CONTEXT: Describe when and how this word is typically used in simple words to understand
-3. REAL-WORLD APPLICATION: Describe practical situations where this word is used and explain the meaning (for example you can use synonims)
+3. REAL-WORLD APPLICATION: Describe practical situations where this word is used and explain the meaning (for example you can use synonyms)
 4. SOME INTERESTING FACTS: some facts form life or specific examples 
 
 Your explanation must be written in an engaging, educational article style appropriate for ${englishLevel} level learners (must use \\n\\n between paragraphs). Think of it as a mini-encyclopedia entry that thoroughly covers the topic. Use simple language but provide comprehensive information.

@@ -15,7 +15,6 @@ import {
     authLimiter,
     slowDownMiddleware,
     rateLimitLogger,
-    dynamicLimiter,
     internalServiceBypass,
     conditionalLimiter
 } from "./middleware/rateLimiting.middleware.js";

@@ -135,7 +135,7 @@ const generateSpeech = async (req, res) => {
     let requestId = null;
 
     try {
-        const { text, timestamp, sessionId, cardId, exercise } = req.body;
+        const { text, sessionId, cardId, exercise } = req.body;
         const userId = req.user._id;
 
         if (!text) {
