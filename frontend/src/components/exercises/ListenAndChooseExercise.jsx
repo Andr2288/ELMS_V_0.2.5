@@ -10,7 +10,6 @@ import {
     CheckCircle, XCircle, Volume2, Loader, VolumeX,
     Eye, EyeOff, Headphones, Brain
 } from "lucide-react";
-import toast from "react-hot-toast";
 
 const ListenAndChooseExercise = ({
                                      rightOptionCard,
@@ -335,7 +334,7 @@ const ListenAndChooseExercise = ({
         };
     }, [audioUrl]);
 
-    // Auto-play audio when available
+    // Autoplay audio when available
     useEffect(() => {
         if (audioUrl &&
             audioRef.current &&

@@ -1,7 +1,7 @@
 // frontend/src/components/FlashcardForm.jsx - ДОДАНО ПІДТРИМКУ ПОЧАТКОВОГО ТЕКСТУ
 
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Save, X, Folder, Settings, Sparkles, RotateCcw, AlertCircle, Loader, StickyNote, Zap, Plus, Trash2, BookOpen } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Save, X, Folder, Loader, Zap, Plus, Trash2, BookOpen } from "lucide-react";
 import { axiosInstance } from "../lib/axios.js";
 import { useCategoryStore } from "../store/useCategoryStore.js";
 import { useUserSettingsStore } from "../store/useUserSettingsStore.js";
@@ -19,9 +19,7 @@ const FlashcardForm = ({
   const { categories, getCategories, getCategoryById } = useCategoryStore();
   const {
     loadSettings,
-    hasUserApiKey,
     getDefaultEnglishLevel,
-    getChatGPTModel
   } = useUserSettingsStore();
 
   // State for form data
@@ -41,7 +39,6 @@ const FlashcardForm = ({
 
   // AI states
   const [englishLevel, setEnglishLevel] = useState(null);
-  const [aiError, setAiError] = useState(null);
 
   // Individual field generation states
   const [isGeneratingField, setIsGeneratingField] = useState({
@@ -57,7 +54,7 @@ const FlashcardForm = ({
   // Auto-save state for quick creation
   const [isQuickCreating, setIsQuickCreating] = useState(false);
 
-  // Ref for auto-focus
+  // Ref for autofocus
   const textInputRef = useRef(null);
 
   // Load categories and settings when form opens
@@ -66,7 +63,7 @@ const FlashcardForm = ({
       getCategories();
       initializeSettings();
 
-      // Auto-focus on text field after a small delay
+      // Autofocus on text field after a small delay
       setTimeout(() => {
         if (textInputRef.current) {
           textInputRef.current.focus();
@@ -529,10 +526,6 @@ const FlashcardForm = ({
   }, [isOpen, formData.text, isQuickCreating]);
 
   if (!isOpen) return null;
-
-  const selectedCategory = categories.find(
-      (cat) => cat._id === formData.categoryId
-  );
 
   // Отримуємо контекст категорії для відображення
   const categoryContextInfo = getCategoryContextInfo();

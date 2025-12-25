@@ -21,10 +21,7 @@ import ConfirmDeleteModal from "./ConfirmDeleteModal.jsx";
 const DetailedFlashcardView = ({ flashcards, onEdit, initialCardIndex = 0 }) => { // ДОДАНО: initialCardIndex проп
   const { deleteFlashcard, updateFlashcard } = useFlashcardStore(); // ДОДАНО updateFlashcard
   const {
-    settings: userSettings,
-    hasApiKey,
     loadSettings,
-    getTTSSettings,
   } = useUserSettingsStore();
 
   const [currentIndex, setCurrentIndex] = useState(initialCardIndex); // ОНОВЛЕНО: використовуємо initialCardIndex

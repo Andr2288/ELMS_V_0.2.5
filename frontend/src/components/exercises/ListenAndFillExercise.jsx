@@ -8,9 +8,8 @@ import ExerciseLayout from "../shared/ExerciseLayout.jsx";
 import DetailedCardInfo from "../shared/DetailedCardInfo.jsx";
 import {
     CheckCircle, XCircle, Volume2, Loader, VolumeX,
-    Headphones, BookOpen
+    Headphones
 } from "lucide-react";
-import toast from "react-hot-toast";
 
 const ListenAndFillExercise = ({
                                    rightOptionCard,

@@ -33,8 +33,6 @@ const PracticePage = () => {
         handleExerciseResult,
         getWordsForExercise,
         getLearningStats,
-        learningStats,
-        migrateFlashcardsToLatestVersion
     } = useFlashcardStore();
     const { categories, getCategories } = useCategoryStore();
 
@@ -49,7 +47,6 @@ const PracticePage = () => {
     const [exerciseResults, setExerciseResults] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-    const [sessionCards, setSessionCards] = useState([]);
     const [sessionStats, setSessionStats] = useState({ correct: 0, total: 0 });
     const [sessionProgress, setSessionProgress] = useState([]);
     const [currentQuestion, setCurrentQuestion] = useState(null);
@@ -68,19 +65,9 @@ const PracticePage = () => {
     // Стейт для лоадера при restart
     const [isRestarting, setIsRestarting] = useState(false);
 
-    const [practiceStats, setPracticeStats] = useState({
-        todayCompleted: 3,
-        dailyGoal: 10,
-        currentStreak: 7,
-        thisWeekCompleted: 18,
-        weeklyGoal: 50,
-        totalCompleted: 247
-    });
-
     // ОНОВЛЕНО: Визначення основних та додаткових вправ
     const coreExercises = ['multiple-choice', 'sentence-completion', 'listen-and-fill', 'listen-and-choose'];
     const advancedExercises = ['reading-comprehension'];
-    const allExerciseTypes = [...coreExercises, ...advancedExercises];
 
     useEffect(() => {
         componentMountedRef.current = true;
@@ -296,7 +283,7 @@ const PracticePage = () => {
     }, []);
 
     // ВИПРАВЛЕНО: Функція для швидкого вибору вправ із заготовленого списку з перевіркою актуального статусу
-    const selectExercisesFromList = useCallback((requestedCount, exerciseMode = 'core') => {
+    const selectExercisesFromList = useCallback((requestedCount) => {
         if (categoryExercisesList.length === 0) {
             console.warn("No exercises available in category list");
             return [];
@@ -340,7 +327,7 @@ const PracticePage = () => {
         console.log(`   Valid learning exercises: ${learningExercises.length}`);
         console.log(`   Valid review exercises: ${reviewExercises.length}`);
 
-        let selectedExercises = [];
+        let selectedExercises;
 
         // Спочатку намагаємося взяти learning вправи
         if (learningExercises.length >= requestedCount) {
@@ -489,7 +476,6 @@ const PracticePage = () => {
                     const words = selectedExercises.map(ex => ex.flashcard);
 
                     safeSetState(setCurrentSessionExercises, selectedExercises);
-                    safeSetState(setSessionCards, words);
                     safeSetState(setCurrentQuestionIndex, 0);
                     safeSetState(setSessionStats, { correct: 0, total: 0 });
                     safeSetState(setSessionProgress, []);
@@ -522,7 +508,6 @@ const PracticePage = () => {
                     const words = selectedExercises.map(ex => ex.flashcard);
 
                     safeSetState(setCurrentSessionExercises, selectedExercises);
-                    safeSetState(setSessionCards, words);
                     safeSetState(setCurrentQuestionIndex, 0);
                     safeSetState(setSessionStats, { correct: 0, total: 0 });
                     safeSetState(setSessionProgress, []);
@@ -602,7 +587,6 @@ const PracticePage = () => {
                 const selectedCards = shuffleArray([...wordsData.words]);
 
                 if (componentMountedRef.current && !requestToken.cancelled) {
-                    safeSetState(setSessionCards, selectedCards);
                     safeSetState(setCurrentQuestionIndex, 0);
                     safeSetState(setSessionStats, { correct: 0, total: 0 });
                     safeSetState(setSessionProgress, []);
@@ -684,7 +668,6 @@ const PracticePage = () => {
             if (!result.completed) {
                 if (componentMountedRef.current) {
                     safeSetState(setCurrentExercise, null);
-                    safeSetState(setSessionCards, []);
                     safeSetState(setCurrentQuestionIndex, 0);
                     safeSetState(setSessionProgress, []);
                     safeSetState(setShowExerciseResult, false);
@@ -870,13 +853,6 @@ const PracticePage = () => {
 
         console.log(`Session completed with ${progressToUse.length} words in progress:`, progressToUse.map(p => p.text));
 
-        setPracticeStats(prev => ({
-            ...prev,
-            todayCompleted: prev.todayCompleted + 1,
-            thisWeekCompleted: prev.thisWeekCompleted + 1,
-            totalCompleted: prev.totalCompleted + 1
-        }));
-
         getLearningStats();
 
         safeSetState(setExerciseResults, results);
@@ -944,7 +920,6 @@ const PracticePage = () => {
 
         if (componentMountedRef.current) {
             safeSetState(setCurrentExercise, null);
-            safeSetState(setSessionCards, []);
             safeSetState(setCurrentQuestionIndex, 0);
             safeSetState(setSessionStats, { correct: 0, total: 0 });
             safeSetState(setSessionProgress, []);
@@ -964,10 +939,6 @@ const PracticePage = () => {
             }
         }, 300);
     }, [isProcessing, cancelPreviousRequest, safeSetState]);
-
-    const handleCardUpdate = useCallback((newCard) => {
-        // Placeholder for card update
-    }, []);
 
     // Exercise types data з новою вправою
     const coreExercisesData = [

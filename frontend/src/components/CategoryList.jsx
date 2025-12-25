@@ -20,7 +20,7 @@ import { useUserSettingsStore } from "../store/useUserSettingsStore.js"; // ДО
 import CategoryForm from "./CategoryForm.jsx";
 import ConfirmDeleteCategoryModal from "./ConfirmDeleteCategoryModal.jsx";
 
-const CategoryList = ({ onCategorySelect, selectedCategoryId, uncategorizedCount = 0 }) => {
+const CategoryList = ({ onCategorySelect, selectedCategoryId }) => {
     const { categories, isLoading, deleteCategory } = useCategoryStore();
     const { flashcards, getFlashcards } = useFlashcardStore();
     const { updateSetting, getGeneralSettings } = useUserSettingsStore(); // ДОДАНО
@@ -173,7 +173,7 @@ const CategoryList = ({ onCategorySelect, selectedCategoryId, uncategorizedCount
             setCategoryToDelete(null);
             loadCategoryProgress();
         } catch (error) {
-            // Error handling is done in the store
+            console.log(error)
         } finally {
             setIsDeleting(false);
         }

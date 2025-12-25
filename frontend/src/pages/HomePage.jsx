@@ -1,16 +1,17 @@
-// frontend/src/pages/HomePage.jsx - ВИПРАВЛЕНО: ПРОБЛЕМА ЗАВИСАННЯ ПРИ ПОВЕРНЕННІ
-
 import { useState, useEffect, useMemo } from "react";
 import { useFlashcardStore } from "../store/useFlashcardStore.js";
 import { useCategoryStore } from "../store/useCategoryStore.js";
 import { useUserSettingsStore } from "../store/useUserSettingsStore.js";
-import { Plus, Edit, Trash2, BookOpen, Grid3X3, Eye, Folder, ArrowLeft, SwitchCamera, Sparkles, Search, X } from "lucide-react";
+
+import { Plus, Edit, Trash2, BookOpen, Grid3X3, Eye, Folder, ArrowLeft, Sparkles, Search, X } from "lucide-react";
+
 import DetailedFlashcardView from "../components/DetailedFlashcardView.jsx";
 import FlashcardForm from "../components/FlashcardForm.jsx";
 import CategoryList from "../components/CategoryList.jsx";
 import ConfirmDeleteModal from "../components/ConfirmDeleteModal.jsx";
 
 const HomePage = () => {
+
     const {
         flashcards,
         isLoading: isLoadingFlashcards,
@@ -22,48 +23,38 @@ const HomePage = () => {
     } = useFlashcardStore();
 
     const {
-        categories,
         isLoading: isLoadingCategories,
         getCategories,
-        setSelectedCategory,
-        selectedCategory
     } = useCategoryStore();
 
-    // ВИПРАВЛЕНО: Спрощене завантаження налаштувань
     const {
         settings,
         loadSettings,
         isLoading: isLoadingSettings,
         areSettingsLoaded,
-        getGeneralSettings,
         getCategorySortSettings,
         getFlashcardSortSettings
     } = useUserSettingsStore();
 
-    const [currentView, setCurrentView] = useState("categories"); // "categories", "flashcards"
-    const [flashcardViewMode, setFlashcardViewMode] = useState("grid"); // "grid" or "detailed"
+    const [currentView, setCurrentView] = useState("categories");
+    const [flashcardViewMode, setFlashcardViewMode] = useState("grid");
     const [currentCardIndex, setCurrentCardIndex] = useState(0);
     const [editingCard, setEditingCard] = useState(null);
     const [showForm, setShowForm] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [selectedCategoryData, setSelectedCategoryData] = useState(null);
 
-    // ДОДАНО: Стан пошуку
     const [searchQuery, setSearchQuery] = useState("");
-    const [showSearchResults, setShowSearchResults] = useState(false);
 
-    // Delete confirmation modal states
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [cardToDelete, setCardToDelete] = useState(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
     const [allFlashcards, setAllFlashcards] = useState([]);
 
-    // ВИПРАВЛЕНО: Простий стан ініціалізації без складної retry логіки
     const [isAppInitialized, setIsAppInitialized] = useState(false);
     const [initializationStarted, setInitializationStarted] = useState(false);
 
-    // ДОДАНО: Фільтровані картки на основі пошукового запиту
     const filteredFlashcards = useMemo(() => {
         if (!searchQuery.trim()) {
             return flashcards;
@@ -82,79 +73,58 @@ const HomePage = () => {
         });
     }, [flashcards, searchQuery]);
 
-    // ВИПРАВЛЕНО: Спрощена ініціалізація без retry логіки
     useEffect(() => {
         const initializeApp = async () => {
             if (initializationStarted) {
-                return; // Запобігаємо повторному запуску
+                return;
             }
 
-            console.log("🚀 HomePage: Starting app initialization...");
             setInitializationStarted(true);
 
             try {
-                // Завантажуємо налаштування (без retry - просто один раз)
                 if (!areSettingsLoaded()) {
-                    console.log("📋 HomePage: Loading settings...");
                     try {
                         await loadSettings();
-                        console.log("✅ HomePage: Settings loaded successfully");
                     } catch (settingsError) {
-                        console.warn("⚠️ HomePage: Settings loading failed, will use defaults:", settingsError);
-                        // Продовжуємо без налаштувань - використаємо fallback
+                        console.warn("HomePage: Settings loading failed, will use defaults:", settingsError);
                     }
                 }
 
-                // Завантажуємо категорії
                 await getCategories();
-                console.log("📁 HomePage: Categories loaded");
 
-                // Якщо ми на головній сторінці, завантажуємо всі картки
                 if (currentView === "categories") {
                     await getFlashcards();
-                    console.log("📚 HomePage: All flashcards loaded");
                 }
 
-                console.log("✅ HomePage: App initialization completed");
                 setIsAppInitialized(true);
 
             } catch (error) {
-                console.error("❌ HomePage: App initialization failed:", error);
-                // Навіть при помилці дозволяємо інтерфейсу завантажитися
+                console.error("HomePage: App initialization failed:", error);
                 setIsAppInitialized(true);
             }
         };
 
         initializeApp();
-    }, []); // ВИПРАВЛЕНО: Тільки один раз при монтуванні
+    }, []);
 
-    // ВИПРАВЛЕНО: Скидаємо стани ініціалізації при демонтуванні
     useEffect(() => {
         return () => {
-            console.log("🔄 HomePage: Component unmounting, resetting initialization states");
             setInitializationStarted(false);
             setIsAppInitialized(false);
         };
     }, []);
 
-    // ДОДАНО: Окремий useEffect для відстеження оновлень allFlashcards
     useEffect(() => {
         if (currentView === "categories") {
             setAllFlashcards(flashcards);
         }
     }, [flashcards, currentView]);
 
-    // ВИПРАВЛЕНО: Надійне отримання налаштувань сортування з fallback значеннями
     const getSortingSettings = () => {
         try {
             if (areSettingsLoaded() && settings) {
                 const categorySortSettings = getCategorySortSettings();
                 const flashcardSortSettings = getFlashcardSortSettings();
-
-                console.log("📋 HomePage: Using loaded sort settings:", {
-                    category: categorySortSettings,
-                    flashcard: flashcardSortSettings
-                });
 
                 return {
                     categories: categorySortSettings,
@@ -162,7 +132,7 @@ const HomePage = () => {
                 };
             }
         } catch (error) {
-            console.warn("⚠️ HomePage: Error getting sort settings:", error);
+            console.warn("HomePage: Error getting sort settings:", error);
         }
 
         // Fallback значення
@@ -175,24 +145,21 @@ const HomePage = () => {
         return fallbackSettings;
     };
 
-    // ДОДАНО: Безпечне отримання налаштувань з кешуванням
     const sortingSettings = useMemo(() => {
         return getSortingSettings();
     }, [settings, areSettingsLoaded()]);
 
-    // ДОДАНО: Timeout для гарантованого завершення завантаження
     useEffect(() => {
         const timeoutId = setTimeout(() => {
             if (!isAppInitialized) {
-                console.warn("⏰ HomePage: Initialization timeout - forcing app to load with defaults");
+                console.warn("HomePage: Initialization timeout - forcing app to load with defaults");
                 setIsAppInitialized(true);
             }
-        }, 10000); // 10 секунд максимум
+        }, 10000);
 
         return () => clearTimeout(timeoutId);
     }, [isAppInitialized]);
 
-    // ДОДАНО: Обробник пошуку при натисканні Enter
     const handleSearchSubmit = (e) => {
         e.preventDefault();
 
@@ -200,33 +167,25 @@ const HomePage = () => {
             return;
         }
 
-        const query = searchQuery.trim();
         const found = filteredFlashcards;
 
         if (found.length === 0) {
-            // Якщо нічого не знайдено - відкриваємо форму створення з заповненим полем
             setEditingCard(null);
             setShowForm(true);
-            // Форма автоматично використає searchQuery як початкове значення
         } else if (found.length === 1) {
-            // Якщо знайдена одна картка - показуємо її в детальному режимі
             const cardIndex = flashcards.findIndex(card => card._id === found[0]._id);
             if (cardIndex >= 0) {
                 setCurrentCardIndex(cardIndex);
                 setFlashcardViewMode("detailed");
-                setSearchQuery(""); // Очищаємо пошук після успішного переходу
+                setSearchQuery("");
             }
         }
-        // Якщо знайдено кілька карток, залишаємо їх відфільтрованими в grid режимі
     };
 
-    // ДОДАНО: Очищення пошуку
     const clearSearch = () => {
         setSearchQuery("");
-        setShowSearchResults(false);
     };
 
-    // Обробник клавіатурних подій для клавіші 'S', Ctrl + Space та ESC
     useEffect(() => {
         const handleKeyPress = (event) => {
             const isModalOpen = document.querySelector('.fixed.inset-0.bg-gray-600\\/80');
@@ -241,11 +200,9 @@ const HomePage = () => {
 
             if (isInputField) return;
 
-            // ESC для повернення до CategoryList з папки
             if (event.key === "Escape") {
                 event.preventDefault();
                 if (searchQuery) {
-                    // Якщо є пошуковий запит, очищаємо його спочатку
                     clearSearch();
                 } else if (currentView === "flashcards") {
                     handleBackToCategories();
@@ -253,7 +210,6 @@ const HomePage = () => {
                 return;
             }
 
-            // Ctrl + Space для швидкого відкриття форми створення картки
             if (event.ctrlKey && event.code === "Space") {
                 event.preventDefault();
                 if (currentView === "flashcards") {
@@ -262,7 +218,6 @@ const HomePage = () => {
                 return;
             }
 
-            // ДОДАНО: Ctrl + F для фокусу на пошуку
             if (event.ctrlKey && event.key === 'f') {
                 event.preventDefault();
                 if (currentView === "flashcards" && flashcardViewMode === "grid") {
@@ -274,7 +229,6 @@ const HomePage = () => {
                 return;
             }
 
-            // Перевіряємо клавішу S/s для зміни режиму перегляду
             if (event.key === 's' || event.key === 'S' ||
                 event.key === 'ы' || event.key === 'Ы' ||
                 event.key === 'і' || event.key === 'І') {
@@ -292,7 +246,7 @@ const HomePage = () => {
         setSelectedCategoryData(category);
         setCurrentView("flashcards");
         setCurrentCardIndex(0);
-        setSearchQuery(""); // Очищаємо пошук при зміні категорії
+        setSearchQuery("");
 
         if (category) {
             if (category._id === 'uncategorized') {
@@ -313,7 +267,7 @@ const HomePage = () => {
         setSelectedCategoryData(null);
         setCategoryFilter(null);
         setCurrentCardIndex(0);
-        setSearchQuery(""); // Очищаємо пошук при поверненні
+        setSearchQuery("");
     };
 
     const handleCreateSubmit = async (formData) => {
@@ -322,10 +276,8 @@ const HomePage = () => {
             const result = await createFlashcard(formData);
 
             if (result && result.newIndex >= 0) {
-                console.log(`📝 HomePage: New flashcard created at index ${result.newIndex}`);
                 setCurrentCardIndex(result.newIndex);
                 setFlashcardViewMode("detailed");
-                console.log(`📝 HomePage: Switched to detailed view, showing card at index ${result.newIndex}`);
             }
         } catch (error) {
             console.error("Error creating flashcard:", error);
@@ -367,7 +319,6 @@ const HomePage = () => {
             if (deletedIndex >= 0 && currentCardIndex >= deletedIndex) {
                 const newIndex = Math.max(0, currentCardIndex - 1);
                 setCurrentCardIndex(newIndex);
-                console.log(`🗑️ HomePage: Adjusted currentCardIndex from ${currentCardIndex} to ${newIndex} after deletion`);
             }
 
             setShowDeleteModal(false);
@@ -394,9 +345,6 @@ const HomePage = () => {
     };
 
     const handleCardClick = (cardIndex) => {
-        console.log(`🔍 HomePage: Card clicked, switching to detailed view at index ${cardIndex}`);
-
-        // ВИПРАВЛЕНО: Якщо є пошук, треба знайти правильний індекс в оригінальному масиві
         let actualIndex = cardIndex;
 
         if (searchQuery.trim()) {
@@ -406,7 +354,7 @@ const HomePage = () => {
 
         setCurrentCardIndex(actualIndex);
         setFlashcardViewMode("detailed");
-        setSearchQuery(""); // Очищаємо пошук при переході в детальний режим
+        setSearchQuery("");
     };
 
     const getCategoryTitle = () => {
@@ -425,10 +373,8 @@ const HomePage = () => {
         return selectedCategoryData._id;
     };
 
-    // ДОДАНО: Визначаємо які картки показувати
     const cardsToDisplay = searchQuery.trim() ? filteredFlashcards : flashcards;
 
-    // ВИПРАВЛЕНО: Простіша перевірка стану завантаження
     const shouldShowLoading = !isAppInitialized && currentView === "categories";
 
     if (shouldShowLoading) {
@@ -446,18 +392,6 @@ const HomePage = () => {
         );
     }
 
-    // ВИПРАВЛЕНО: Показуємо інформацію про статус в режимі розробки
-    if (process.env.NODE_ENV === 'development') {
-        console.log("🔍 HomePage Debug Info:", {
-            isAppInitialized,
-            initializationStarted,
-            areSettingsLoaded: areSettingsLoaded(),
-            settings: !!settings,
-            sortingSettings,
-            shouldShowLoading
-        });
-    }
-
     return (
         <div className="ml-64 min-h-screen bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100">
             {currentView === "categories" ? (
@@ -466,7 +400,6 @@ const HomePage = () => {
                         onCategorySelect={handleCategorySelect}
                         selectedCategoryId={selectedCategoryData?._id}
                         uncategorizedCount={allFlashcards?.filter(card => !card.categoryId).length || 0}
-                        // ВИПРАВЛЕНО: Передаємо налаштування сортування надійно
                         sortSettings={sortingSettings.categories}
                     />
                 </div>
@@ -477,7 +410,6 @@ const HomePage = () => {
                         <div className="p-8">
                             <div className="max-w-7xl mx-auto flex justify-between items-center">
                                 <div className="flex items-center space-x-2">
-                                    {/* Back Button */}
                                     <button
                                         onClick={handleBackToCategories}
                                         className="hover:bg-blue-50 p-2 rounded-xl transition-colors"
@@ -486,7 +418,6 @@ const HomePage = () => {
                                         <ArrowLeft className="w-6 h-6 text-blue-600" />
                                     </button>
 
-                                    {/* Category Info */}
                                     <div className="flex items-center space-x-3">
                                         <div
                                             className="w-10 h-10 rounded-lg flex items-center justify-center shadow-md"
@@ -520,7 +451,6 @@ const HomePage = () => {
                                 </div>
 
                                 <div className="flex items-center space-x-4">
-                                    {/* ДОДАНО: Пошук (тільки в grid режимі) */}
                                     {flashcardViewMode === "grid" && flashcards.length > 0 && (
                                         <form onSubmit={handleSearchSubmit} className="relative">
                                             <div className="relative">
@@ -546,7 +476,6 @@ const HomePage = () => {
                                         </form>
                                     )}
 
-                                    {/* View Mode Controls */}
                                     {flashcards.length > 0 && (
                                         <div className="flex items-center">
                                             <div className="flex bg-blue-50 rounded-xl p-1">
@@ -590,7 +519,6 @@ const HomePage = () => {
                                 </div>
                             </div>
 
-                            {/* ДОДАНО: Показуємо результати пошуку */}
                             {searchQuery.trim() && (
                                 <div className="max-w-7xl mx-auto mt-4">
                                     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-center justify-between">
@@ -788,7 +716,6 @@ const HomePage = () => {
                 </>
             )}
 
-            {/* ОНОВЛЕНО: Form Modal з підтримкою пошукового запиту */}
             <FlashcardForm
                 isOpen={showForm}
                 onClose={closeForm}
@@ -799,7 +726,6 @@ const HomePage = () => {
                 initialText={!editingCard && searchQuery.trim() ? searchQuery.trim() : undefined} // Передаємо пошуковий запит як початковий текст
             />
 
-            {/* Delete Confirmation Modal */}
             <ConfirmDeleteModal
                 isOpen={showDeleteModal}
                 onClose={handleDeleteCancel}

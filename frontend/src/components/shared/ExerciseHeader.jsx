@@ -4,7 +4,6 @@
 import { Home } from "lucide-react";
 
 const ExerciseHeader = ({
-                            icon: Icon,
                             title,
                             description,
                             gradientClasses,

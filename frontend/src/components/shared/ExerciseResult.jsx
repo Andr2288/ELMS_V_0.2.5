@@ -204,13 +204,6 @@ const ExerciseResult = ({
         return 'text-pink-600';
     };
 
-    // Функція для отримання назви категорії
-    const getCategoryDisplayName = (selectedCategory) => {
-        if (!selectedCategory || selectedCategory === 'all') return 'всіх категорій';
-        if (selectedCategory === 'uncategorized') return 'без категорії';
-        return '';
-    };
-
     // Підрахунок статистики для reading comprehension
     const getSessionStatistics = () => {
         // Для reading comprehension показуємо статистику всієї категорії

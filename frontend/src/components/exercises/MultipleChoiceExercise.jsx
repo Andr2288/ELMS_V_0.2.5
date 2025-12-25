@@ -6,7 +6,7 @@ import { useUserSettingsStore } from "../../store/useUserSettingsStore.js";
 import ExerciseLayout from "../shared/ExerciseLayout.jsx";
 import DetailedCardInfo from "../shared/DetailedCardInfo.jsx";
 import {
-    CheckCircle, XCircle, Brain, Loader, BookOpen
+    CheckCircle, XCircle, Brain, Loader
 } from "lucide-react";
 
 const MultipleChoiceExercise = ({

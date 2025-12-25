@@ -6,7 +6,7 @@ import { useUserSettingsStore } from "../../store/useUserSettingsStore.js";
 import ExerciseLayout from "../shared/ExerciseLayout.jsx";
 import DetailedCardInfo from "../shared/DetailedCardInfo.jsx";
 import {
-    CheckCircle, XCircle, Type, Loader, BookOpen
+    CheckCircle, XCircle, Type, Loader
 } from "lucide-react";
 
 const SentenceCompletionExercise = ({

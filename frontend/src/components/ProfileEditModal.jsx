@@ -94,7 +94,7 @@ const ProfileEditModal = ({
             await onSave(formData);
             // onClose викликається в батьківському компоненті після успішного збереження
         } catch (error) {
-            // Помилка обробляється в батьківському компоненті
+            console.log(error)
         }
     };
 

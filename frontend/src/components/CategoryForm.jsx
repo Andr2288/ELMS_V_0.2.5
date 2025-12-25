@@ -1,5 +1,3 @@
-// frontend/src/components/CategoryForm.jsx
-
 import { useState, useEffect } from "react";
 import { Save, X, Folder } from "lucide-react";
 import { useCategoryStore } from "../store/useCategoryStore.js";

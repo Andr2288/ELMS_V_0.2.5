@@ -59,19 +59,10 @@ export const useAchievementStore = create(
             markAchievementsAsSeen: () => {
                 set({ hasUnseenAchievements: false });
             },
-
-            // Скинути стан досягнень (наприклад, при логауті)
-            resetAchievements: () => {
-                set({
-                    lastKnownAchievements: null,
-                    hasUnseenAchievements: false
-                });
-            }
         }),
         {
             name: "achievement-storage", // назва для localStorage
             partialize: (state) => ({
-                // Зберігаємо тільки ці поля в localStorage
                 lastKnownAchievements: state.lastKnownAchievements,
                 hasUnseenAchievements: state.hasUnseenAchievements
             })

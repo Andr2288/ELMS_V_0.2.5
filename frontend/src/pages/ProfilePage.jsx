@@ -16,7 +16,7 @@ const ProfilePage = () => {
     const { authUser, updateProfile, isUpdatingProfile } = useAuthStore();
     const { flashcards, getFlashcards, getLearningStats, learningStats } = useFlashcardStore();
     const { categories, getCategories } = useCategoryStore();
-    const { settings, loadSettings } = useUserSettingsStore();
+    const { loadSettings } = useUserSettingsStore();
     const { checkForNewAchievements, markAchievementsAsSeen } = useAchievementStore();
 
     // Modal state
@@ -83,9 +83,6 @@ const ProfilePage = () => {
                     return null;
                 })
             );
-
-            const results = await Promise.allSettled(promises); // Використовуємо allSettled замість all
-
         } catch (error) {
             if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
                 console.error("Error loading profile data:", error);
@@ -627,7 +624,7 @@ const ProfilePage = () => {
                                         <h3 className="text-lg font-semibold text-gray-900">Топ категорії</h3>
                                     </div>
                                     <div className="space-y-4">
-                                        {stats.categoryStats.slice(0, 5).map((category, index) => (
+                                        {stats.categoryStats.slice(0, 5).map((category) => (
                                             <div key={category.id} className="flex items-center space-x-3">
                                                 <div className="flex items-center space-x-2 flex-1">
                                                     <div

@@ -3,7 +3,6 @@ import {
     Settings, Volume2, RotateCcw, Sparkles
 } from "lucide-react";
 import { useUserSettingsStore } from "../store/useUserSettingsStore.js";
-import toast from "react-hot-toast";
 
 const SettingsPage = () => {
     const {
@@ -31,7 +30,7 @@ const SettingsPage = () => {
         try {
             await updateSetting(path, value);
         } catch (error) {
-            // Error handling is done in the store
+            console.log(error);
         }
     };
 
